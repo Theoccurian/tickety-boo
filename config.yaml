@@ -1,0 +1,169 @@
+# ─────────────────────────────────────────────────────────────
+#  SITE SETTINGS — this is the only file you should need to edit.
+#  Lines starting with # are notes and are ignored.
+# ─────────────────────────────────────────────────────────────
+
+site:
+  name: "Tickety-Boo News"
+  short_name: "TBN"
+  tagline: "Real stories of things going right, from around the world."
+  description: "A daily round-up of positive, true news stories from around the world, each one linked to its original source."
+  language: "en-GB"
+  # Your site's web address, e.g. "https://ticketyboonews.co.uk" (no slash at the end).
+  base_url: "https://ticketyboonews.co.uk"
+  # An email address readers can use to report mistakes. Shown on the About page.
+  # Search engines (especially Google News) trust sites more when there's a way to get in touch.
+  contact_email: "hello@ticketyboonews.co.uk"
+  # Your Instagram page, e.g. "https://www.instagram.com/ticketyboonews". Linked from the site.
+  instagram_url: "https://www.instagram.com/ticketyboonews"
+
+seo:
+  # true  = AI companies may also use the site's stories to train their AI models.
+  # false = blocks AI *training* crawlers. AI *search* tools (ChatGPT search, Perplexity,
+  #         Claude, Copilot, Google AI Overviews) can still find and cite you either way.
+  allow_ai_training: true
+  # Tells Bing (which powers Copilot) and others about new stories the moment they're published.
+  indexnow: true
+  indexnow_key: "9db169fadca80a28767d5cc8087e911d"
+
+publishing:
+  # How many new stories to write each time the robot runs (it runs 3 times a day).
+  articles_per_run: 3
+  # Stories are rated 1–10 for how genuinely uplifting and newsworthy they are.
+  # Only stories at or above this score are written up.
+  min_score: 7
+  # Only consider stories published in the last this-many hours.
+  max_age_hours: 48
+  # false = every story waits for you to approve it in GitHub (recommended).
+  # true  = stories go live automatically with no approval.
+  auto_publish: false
+  # Unapproved stories are thrown away after this many days so they don't pile up.
+  discard_unreviewed_after_days: 5
+  # Stories shown on each page of the homepage.
+  stories_per_page: 13
+
+ai:
+  # Cheaper, faster model used to sift through headlines.
+  scoring_model: "claude-haiku-5-5"
+  # Better writer, used for the articles themselves and the fact-check.
+  writing_model: "claude-sonnet-5-5"
+
+instagram:
+  # Switch to true once you've connected Instagram (see SETUP.md, part 2).
+  enabled: false
+  # Added to the end of every caption.
+  brand_hashtags: ["#TicketyBooNews", "#GoodNews"]
+  # Only post between these hours, UK time (24-hour clock).
+  posting_hours: [8, 21]
+  # Leave at least this many hours between posts.
+  min_hours_between_posts: 3
+  # Stories older than this are never posted to Instagram.
+  max_story_age_days: 3
+  # true = swipeable 3-slide posts (headline, In brief, Why it matters). false = single image.
+  carousel: true
+
+# ─── Making money (all optional; each part stays hidden until filled in) ──────
+
+support:
+  # Your donation page, e.g. a Ko-fi or Buy Me a Coffee link.
+  donate_url: ""
+  button: "Support TBN"
+
+newsletter:
+  # The sign-up form: in Kit, open your form, choose "Embed" then "HTML", and copy the address
+  # after action=" (it looks like https://app.kit.com/forms/1234567/subscriptions).
+  form_action: ""
+  email_field: "email_address"
+  # Or, instead of a form on the site, a link to a separate sign-up page.
+  subscribe_url: ""
+  frequency: "every Friday"
+  # Build the weekly newsletter from the week's stories every Friday morning.
+  weekly_digest: false
+  # false = saved as a draft in Kit for you to check and send. true = sent automatically.
+  auto_send: false
+  intro: "Here are some of the good things that happened around the world this week."
+
+analytics:
+  # Privacy-friendly visitor counts (no cookie banner needed). Fill in ONE of these.
+  cloudflare_token: ""   # Cloudflare Web Analytics (free)
+  plausible_domain: ""   # Plausible (paid), e.g. "ticketyboonews.co.uk"
+
+partners_page:
+  title: "Offers for TBN readers"
+  intro: "Discounts from sustainable brands we've chosen to work with. These are paid partnerships."
+  # true = codes appear only in the newsletter; the site tells people to subscribe to get them.
+  codes_for_subscribers_only: true
+
+# Each partner offer appears on the Offers page, clearly labelled as an ad. Example:
+#  - name: "Example Refills"
+#    offer: "15% off your first order"
+#    description: "Plastic-free cleaning refills delivered by post."
+#    url: "https://example.com/?ref=tbn"
+#    code: "TBN15"
+partners: []
+
+# The sections of the site. You can rename these, change colours, or add new ones.
+# "icon" must be one of: health, environment, science, people, kindness, animals, technology
+categories:
+  - slug: health
+    name: Health
+    colour: "#D9483B"
+    icon: health
+    description: "Medical breakthroughs, better care and healthier lives."
+  - slug: environment
+    name: Environment
+    colour: "#23855A"
+    icon: environment
+    description: "Nature recovering, cleaner energy and a healthier planet."
+  - slug: science
+    name: Science
+    colour: "#5B4BD1"
+    icon: science
+    description: "Discoveries that expand what we know."
+  - slug: people
+    name: People
+    colour: "#C2620F"
+    icon: people
+    description: "Remarkable people and communities doing remarkable things."
+  - slug: kindness
+    name: Kindness
+    colour: "#C93F86"
+    icon: kindness
+    description: "Generosity, compassion and strangers helping strangers."
+  - slug: animals
+    name: Animals
+    colour: "#13817F"
+    icon: animals
+    description: "Wildlife comebacks, rescues and conservation wins."
+  - slug: technology
+    name: Technology
+    colour: "#2B62C4"
+    icon: technology
+    description: "Inventions and ideas making life better."
+
+# Where stories come from. Any news site with an RSS feed can be added.
+feeds:
+  - name: Positive News
+    url: "https://www.positive.news/feed/"
+  - name: Good News Network
+    url: "https://www.goodnewsnetwork.org/feed/"
+  - name: Reasons to be Cheerful
+    url: "https://reasonstobecheerful.world/feed/"
+  - name: The Optimist Daily
+    url: "https://www.optimistdaily.com/feed/"
+  - name: Good Good Good
+    url: "https://www.goodgoodgood.co/articles/rss.xml"
+  - name: Squirrel News
+    url: "https://squirrel-news.net/feed/"
+  - name: Fix The News
+    url: "https://substack.fixthenews.com/feed"
+  - name: Happy Eco News
+    url: "https://happyeconews.com/feed"
+  - name: BBC News (Science & Environment)
+    url: "https://feeds.bbci.co.uk/news/science_and_environment/rss.xml"
+  - name: BBC News (Health)
+    url: "https://feeds.bbci.co.uk/news/health/rss.xml"
+  - name: ScienceDaily
+    url: "https://www.sciencedaily.com/rss/top/science.xml"
+  - name: Mongabay
+    url: "https://news.mongabay.com/feed/"

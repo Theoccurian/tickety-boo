@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% from "_macros.html" import story_row, newsletter_box, support_line %}
+{% block title %}{{ a.title }} | {{ site.name }}{% endblock %}
+{% block description %}{{ a.dek }}{% endblock %}
+{% block og_type %}article{% endblock %}
+{% block share_image %}
+<meta property="og:image" content="{{ abs_url('/social/' ~ a.slug ~ '-share.jpg') }}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="{{ a.title }}">
+<meta name="twitter:card" content="summary_large_image">
+{% endblock %}
+{% block head %}
+<meta property="article:published_time" content="{{ a.date.isoformat() }}">
+<meta property="article:section" content="{{ a.cat.name }}">
+<meta property="article:modified_time" content="{{ (a.updated_dt or a.date).isoformat() }}">
+{% for t in a.tags %}<meta property="article:tag" content="{{ t }}">
+{% endfor %}<link rel="alternate" type="text/markdown" href="{{ url('/stories/' ~ a.slug ~ '.md') }}" title="Plain-text version">
+{% endblock %}
+{% block main %}
+<article class="story" style="--c: {{ a.cat.colour }}">
+  <header class="story__head wrap-narrow">
+    <a class="kicker" href="{{ url('/category/' ~ a.cat.slug ~ '/') }}">{{ icon(a.cat.icon, 16) }}{{ a.cat.name }}</a>
+    <h1 class="story__title">{{ a.title }}</h1>
+    <p class="story__dek">{{ a.dek }}</p>
+    <p class="meta"><span>{{ a.location }}</span><time datetime="{{ a.date.isoformat() }}">{{ a.date_nice }}</time><span>{{ a.minutes }} min read</span></p>
+  </header>
+  <figure class="story__art wrap-wide">{{ cover(a.cat.colour, a.cat.icon, a.seed, label=a.cat.name ~ ' illustration') }}</figure>
+  {% if a.key_points %}
+  <aside class="brief wrap-narrow" aria-labelledby="brief-h">
+    <h2 class="brief__title" id="brief-h">In brief</h2>
+    <ul>{% for p in a.key_points %}<li>{{ p }}</li>{% endfor %}</ul>
+  </aside>
+  {% endif %}
+  <div class="story__body prose wrap-narrow">
+    {{ a.html }}
+  </div>
+  <aside class="credit wrap-narrow" aria-label="Original source">
+    <p class="credit__label">First reported by {{ a.source_name }}</p>
+    <a class="credit__link" href="{{ a.source_url }}" rel="noopener" target="_blank">{{ a.source_title }}</a>
+    <p class="credit__note">Written by {{ site.name }} from the original report, with AI assistance{% if approval %}, and checked by an editor before publishing{% endif %}. <a href="{{ url('/about/') }}">How we make our stories</a>.</p>
+  </aside>
+  <div class="share wrap-narrow">
+    <span>Pass it on:</span>
+    <a href="https://wa.me/?text={{ (a.title ~ ' ' ~ abs_url(a.path)) | urlencode }}" target="_blank" rel="noopener">WhatsApp</a>
+    <a href="https://www.facebook.com/sharer/sharer.php?u={{ abs_url(a.path) | urlencode }}" target="_blank" rel="noopener">Facebook</a>
+    <a href="https://bsky.app/intent/compose?text={{ (a.title ~ ' ' ~ abs_url(a.path)) | urlencode }}" target="_blank" rel="noopener">Bluesky</a>
+    <a href="mailto:?subject={{ a.title | urlencode }}&amp;body={{ abs_url(a.path) | urlencode }}">Email</a>
+  </div>
+</article>
+
+<div class="wrap-narrow after-story">
+  {{ support_line() }}
+  {{ newsletter_box() }}
+</div>
+
+{% if related %}
+<section class="wrap related" aria-labelledby="rel-h">
+  <h2 class="block-title" id="rel-h">More good news</h2>
+  <div class="rows rows--three">
+    {% for r in related %}{{ story_row(r, show_dek=false) }}{% endfor %}
+  </div>
+</section>
+{% endif %}
+{% endblock %}

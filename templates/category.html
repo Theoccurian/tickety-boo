@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% from "_macros.html" import story_row, pager %}
+{% block title %}{{ cat.name }}{% if page > 1 %}, page {{ page }}{% endif %} | {{ site.name }}{% endblock %}
+{% block description %}{{ cat.description }}{% endblock %}
+{% block main %}
+<section class="band" style="--c: {{ cat.colour }}">
+  <div class="wrap band__inner">
+    <span class="band__icon">{{ icon(cat.icon, 44) }}</span>
+    <div>
+      <h1 class="band__title">{{ cat.name }}</h1>
+      <p class="band__text">{{ cat.description }}</p>
+    </div>
+  </div>
+</section>
+<section class="wrap latest">
+  {% if stories %}
+  <div class="rows">
+    {% for a in stories %}{{ story_row(a) }}{% endfor %}
+  </div>
+  {{ pager(prev_url, next_url, page, pages) }}
+  {% else %}
+  <div class="empty">
+    <p class="empty__title">No {{ cat.name | lower }} stories yet.</p>
+    <p>They'll appear here as soon as one is published. In the meantime, <a href="{{ url('/') }}">see the latest good news</a>.</p>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

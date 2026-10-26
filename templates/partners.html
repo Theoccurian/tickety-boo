@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% from "_macros.html" import newsletter_box %}
+{% block title %}{{ partners_cfg.title or 'Offers for TBN readers' }} | {{ site.name }}{% endblock %}
+{% block description %}{{ partners_cfg.intro or 'Discounts from sustainable brands for ' ~ site.name ~ ' readers.' }}{% endblock %}
+{% block main %}
+<article class="story">
+  <header class="story__head wrap-narrow">
+    <h1 class="story__title">{{ partners_cfg.title or 'Offers for TBN readers' }}</h1>
+    <p class="story__dek">{{ partners_cfg.intro }}</p>
+  </header>
+  <div class="wrap-narrow offers">
+    {% for p in partners %}
+    <section class="offer" aria-labelledby="offer-{{ loop.index }}">
+      <p class="offer__label">Ad: paid partnership</p>
+      <h2 class="offer__name" id="offer-{{ loop.index }}">{{ p.name }}</h2>
+      <p class="offer__deal">{{ p.offer }}</p>
+      {% if p.description %}<p class="offer__text">{{ p.description }}</p>{% endif %}
+      <div class="offer__actions">
+        {% if p.code and not partners_cfg.codes_for_subscribers_only %}<p class="offer__code">Code: <strong>{{ p.code }}</strong></p>{% endif %}
+        {% if p.code and partners_cfg.codes_for_subscribers_only %}<p class="offer__code">Code sent to newsletter subscribers</p>{% endif %}
+        {% if p.url %}<a class="offer__link" href="{{ p.url }}" rel="sponsored noopener" target="_blank">Visit {{ p.name }}</a>{% endif %}
+      </div>
+    </section>
+    {% endfor %}
+  </div>
+</article>
+{% if partners_cfg.codes_for_subscribers_only %}<div class="wrap-narrow after-story">{{ newsletter_box() }}</div>{% endif %}
+{% endblock %}

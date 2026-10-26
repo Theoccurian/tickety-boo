@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="{{ site.language or 'en-GB' }}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}{{ site.name }}{% endblock %}</title>
+<meta name="description" content="{% block description %}{{ site.description }}{% endblock %}">
+<link rel="canonical" href="{{ abs_url(page_path) }}">
+<meta name="robots" content="{{ robots | default('index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1') }}">
+<meta property="og:site_name" content="{{ site.name }}">
+<meta property="og:title" content="{{ self.title() }}">
+<meta property="og:description" content="{{ self.description() }}">
+<meta property="og:url" content="{{ abs_url(page_path) }}">
+<meta property="og:type" content="{% block og_type %}website{% endblock %}">
+{% block share_image %}<meta name="twitter:card" content="summary">{% endblock %}
+<meta name="theme-color" content="#F3F6F2" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#101A2B" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="{{ url('/static/favicon.svg') }}" type="image/svg+xml">
+<link rel="apple-touch-icon" href="{{ url('/static/brand/logo-512.png') }}">
+<link rel="alternate" type="application/rss+xml" title="{{ site.name }}" href="{{ url('/feed.xml') }}">
+<link rel="preload" href="{{ url('/static/fonts/bricolage-grotesque.woff2') }}" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="{{ url('/static/style.css') }}">
+{% block head %}{% endblock %}
+{% if schema %}<script type="application/ld+json">{{ schema }}</script>{% endif %}
+{% if analytics.cloudflare_token %}<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "{{ analytics.cloudflare_token }}"}'></script>{% endif %}
+{% if analytics.plausible_domain %}<script defer data-domain="{{ analytics.plausible_domain }}" src="https://plausible.io/js/script.js"></script>{% endif %}
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="masthead">
+  <div class="wrap masthead__top">
+    <a class="brand" href="{{ url('/') }}">
+      <svg class="brand__mark" viewBox="0 0 48 48" aria-hidden="true">
+        <circle cx="24" cy="30" r="11" fill="var(--sun)"/>
+        <g stroke="var(--sun)" stroke-width="3.2" stroke-linecap="round">
+          <path d="M24 6v6M8.4 14.4l4.2 4.2M39.6 14.4l-4.2 4.2M3 30h5M40 30h5"/>
+        </g>
+        <path d="M2 42h44" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"/>
+      </svg>
+      <span class="brand__name">{{ site.name }}</span>
+    </a>
+    <a class="masthead__about" href="{{ url('/about/') }}">About</a>
+  </div>
+  <nav class="sections" aria-label="Sections">
+    <ul class="wrap sections__list">
+      {% for c in categories %}
+      <li><a class="section-link{% if cat is defined and cat and cat.slug == c.slug %} is-current{% endif %}" href="{{ url('/category/' ~ c.slug ~ '/') }}" style="--c: {{ c.colour }}"{% if cat is defined and cat and cat.slug == c.slug %} aria-current="page"{% endif %}>{{ icon(c.icon) }}{{ c.name }}</a></li>
+      {% endfor %}
+    </ul>
+  </nav>
+</header>
+
+<main id="main">
+{% block main %}{% endblock %}
+</main>
+
+<footer class="footer">
+  <div class="wrap footer__grid">
+    <div>
+      <p class="footer__name">{{ site.name }}</p>
+      <p class="footer__text">{{ site.description }}</p>
+    </div>
+    <ul class="footer__links">
+      <li><a href="{{ url('/about/') }}">How we find our stories</a></li>
+      {% if newsletter.form_action or newsletter.subscribe_url %}<li><a href="{{ newsletter.subscribe_url or (url('/') ~ '#newsletter') }}">Get the newsletter</a></li>{% endif %}
+      {% if partners %}<li><a href="{{ url('/partners/') }}">{{ partners_cfg.title or 'Offers for TBN readers' }}</a></li>{% endif %}
+      {% if support.donate_url %}<li><a href="{{ support.donate_url }}" rel="noopener" target="_blank">Support {{ site.short_name or site.name }}</a></li>{% endif %}
+      {% if site.instagram_url %}<li><a href="{{ site.instagram_url }}" rel="noopener me" target="_blank">Instagram</a></li>{% endif %}
+      <li><a href="{{ url('/feed.xml') }}">RSS feed</a></li>
+      <li><a href="{{ url('/privacy/') }}">Privacy</a></li>
+    </ul>
+  </div>
+  <p class="wrap footer__small">© {{ year }} {{ site.name }}. Every story links to the outlet that first reported it.</p>
+</footer>
+</body>
+</html>

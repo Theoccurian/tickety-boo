@@ -1,0 +1,49 @@
+{% macro story_row(a, show_dek=true) -%}
+<article class="row" style="--c: {{ a.cat.colour }}">
+  <a class="row__thumb" href="{{ url(a.path) }}" tabindex="-1" aria-hidden="true">{{ cover(a.cat.colour, a.cat.icon, a.seed, 600, 600) }}</a>
+  <div class="row__text">
+    <a class="kicker" href="{{ url('/category/' ~ a.cat.slug ~ '/') }}">{{ a.cat.name }}</a>
+    <h3 class="row__title"><a href="{{ url(a.path) }}">{{ a.title }}</a></h3>
+    {% if show_dek and a.dek %}<p class="row__dek">{{ a.dek }}</p>{% endif %}
+    <p class="meta"><span>{{ a.location }}</span><time datetime="{{ a.date.isoformat() }}">{{ a.date_nice }}</time></p>
+  </div>
+</article>
+{%- endmacro %}
+
+{% macro pager(prev_url, next_url, page, pages) -%}
+{% if pages > 1 %}
+<nav class="pager" aria-label="More stories">
+  {% if prev_url %}<a class="pager__link" href="{{ prev_url }}">Newer stories</a>{% else %}<span></span>{% endif %}
+  <span class="pager__count">Page {{ page }} of {{ pages }}</span>
+  {% if next_url %}<a class="pager__link" href="{{ next_url }}">Older stories</a>{% else %}<span></span>{% endif %}
+</nav>
+{% endif %}
+{%- endmacro %}
+
+
+{% macro newsletter_box() -%}
+{% if newsletter.form_action or newsletter.subscribe_url %}
+<section class="signup" id="newsletter" aria-labelledby="signup-h">
+  <div class="signup__text">
+    <h2 class="signup__title" id="signup-h">{{ newsletter.title or 'Good news, in your inbox' }}</h2>
+    <p>{{ newsletter.pitch or ('The best stories ' ~ (newsletter.frequency or 'each week') ~ ', in one short email.') }}{% if partners %} Subscribers also get discounts from our partners.{% endif %}</p>
+  </div>
+  {% if newsletter.form_action %}
+  <form class="signup__form" action="{{ newsletter.form_action }}" method="post" target="_blank">
+    <label class="visually-hidden" for="signup-email">Email address</label>
+    <input id="signup-email" type="email" name="{{ newsletter.email_field or 'email' }}" placeholder="you@example.com" autocomplete="email" required>
+    <button type="submit">Subscribe</button>
+  </form>
+  {% else %}
+  <a class="signup__button" href="{{ newsletter.subscribe_url }}" rel="noopener" target="_blank">Subscribe</a>
+  {% endif %}
+</section>
+{% endif %}
+{%- endmacro %}
+
+{% macro support_line() -%}
+{% if support.donate_url %}
+<p class="support">{{ support.message or (site.name ~ ' is free to read. If a story brightened your day, you can help keep it going.') }}
+  <a href="{{ support.donate_url }}" rel="noopener" target="_blank">{{ support.button or 'Support ' ~ (site.short_name or site.name) }}</a></p>
+{% endif %}
+{%- endmacro %}

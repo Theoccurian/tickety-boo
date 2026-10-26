@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% from "_macros.html" import story_row, pager, newsletter_box %}
+{% block title %}{% if page > 1 %}Page {{ page }} | {{ site.name }}{% else %}{{ site.name }}: {{ site.tagline }}{% endif %}{% endblock %}
+{% block main %}
+{% if page == 1 %}
+<section class="intro wrap">
+  <h1 class="intro__line">{{ site.tagline }}</h1>
+  {% if total %}<p class="intro__count"><strong>{{ this_week }}</strong> {{ 'story' if this_week == 1 else 'stories' }} this week</p>{% endif %}
+</section>
+{% endif %}
+
+{% if lead %}
+<section class="lead wrap" style="--c: {{ lead.cat.colour }}">
+  <a class="lead__art" href="{{ url(lead.path) }}" tabindex="-1" aria-hidden="true">{{ cover(lead.cat.colour, lead.cat.icon, lead.seed) }}</a>
+  <div class="lead__text">
+    <a class="kicker" href="{{ url('/category/' ~ lead.cat.slug ~ '/') }}">{{ lead.cat.name }}</a>
+    <h2 class="lead__title"><a href="{{ url(lead.path) }}">{{ lead.title }}</a></h2>
+    <p class="lead__dek">{{ lead.dek }}</p>
+    <p class="meta"><span>{{ lead.location }}</span><time datetime="{{ lead.date.isoformat() }}">{{ lead.date_nice }}</time><span>{{ lead.minutes }} min read</span></p>
+  </div>
+</section>
+{% endif %}
+
+{% if page == 1 and (newsletter.form_action or newsletter.subscribe_url) %}<div class="wrap home-signup">{{ newsletter_box() }}</div>{% endif %}
+
+{% if stories %}
+<section class="wrap latest" aria-labelledby="latest-h">
+  <h2 class="block-title" id="latest-h">{% if page == 1 %}More good news{% else %}Earlier stories{% endif %}</h2>
+  <div class="rows">
+    {% for a in stories %}{{ story_row(a) }}{% endfor %}
+  </div>
+  {{ pager(prev_url, next_url, page, pages) }}
+</section>
+{% elif not lead %}
+<section class="wrap empty">
+  <h1 class="empty__title">The first stories are on their way.</h1>
+  <p>New stories appear here a few times a day, as soon as they've been checked and approved.</p>
+</section>
+{% endif %}
+{% endblock %}

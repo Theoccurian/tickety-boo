@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<style>
+@font-face { font-family: "Bricolage Grotesque"; font-weight: 200 800; src: url("{{ fonts_dir }}/bricolage-grotesque.woff2") format("woff2"); }
+@font-face { font-family: "Source Serif 4"; font-weight: 200 900; src: url("{{ fonts_dir }}/source-serif-4.woff2") format("woff2"); }
+* { box-sizing: border-box; margin: 0; }
+html, body { width: {{ w }}px; height: {{ h }}px; overflow: hidden; }
+body {
+  font-family: "Bricolage Grotesque", sans-serif; color: #132036; background: #F3F6F2;
+  -webkit-font-smoothing: antialiased; font-optical-sizing: auto;
+}
+.art svg { display: block; width: 100%; height: 100%; }
+.kicker { display: flex; align-items: center; gap: .4em; color: {{ a.cat.colour }}; font-weight: 680; }
+.kicker svg { width: 1.15em; height: 1.15em; }
+.title { font-weight: 720; letter-spacing: -0.032em; line-height: 1.04; text-wrap: balance; }
+.foot { display: flex; align-items: center; justify-content: space-between; gap: 1em; }
+.brand { display: flex; align-items: center; gap: .45em; font-weight: 800; letter-spacing: -0.025em; }
+.brand svg { width: 1.5em; height: 1.5em; flex: none; }
+.where { color: #55627A; font-weight: 500; }
+
+/* Instagram: 1080 × 1350 */
+.ig { display: grid; grid-template-rows: 640px 1fr; height: 100%; }
+.ig .panel { display: flex; flex-direction: column; padding: 56px 72px 60px; }
+.ig .kicker { font-size: 34px; margin-bottom: 22px; }
+.ig .title { font-size: {{ ig_size }}px; }
+.ig .dek { font-family: "Source Serif 4", Georgia, serif; font-size: 34px; line-height: 1.42; color: #55627A; margin-top: 26px; max-width: 34ch; }
+.ig .foot { margin-top: auto; font-size: 30px; }
+
+/* Link preview: 1200 × 630 */
+.share { display: grid; grid-template-columns: 500px 1fr; height: 100%; }
+.share .panel { display: flex; flex-direction: column; padding: 52px 56px 48px; }
+.share .kicker { font-size: 26px; margin-bottom: 18px; }
+.share .title { font-size: {{ share_size }}px; }
+.share .foot { margin-top: auto; font-size: 24px; }
+
+/* Carousel slide 2: In brief (1080 × 1350) */
+.slide { height: 100%; display: flex; flex-direction: column; padding: 96px 84px 72px; }
+.slide .kicker { font-size: 32px; margin-bottom: 26px; }
+.slide h2 { font-size: 84px; font-weight: 760; letter-spacing: -0.035em; line-height: 1; margin-bottom: 64px; }
+.points { list-style: none; padding: 0; display: grid; gap: 44px; }
+.points li { position: relative; padding-left: 64px; font-size: {{ brief_size }}px; font-weight: 560; line-height: 1.22; letter-spacing: -0.012em; }
+.points li::before { content: ""; position: absolute; left: 0; top: .32em; width: 30px; height: 30px; border-radius: 50%; background: {{ a.cat.colour }}; }
+.slide .middle { margin-block: auto; padding-bottom: 40px; }
+.slide .foot { font-size: 30px; }
+.hint { color: #55627A; font-weight: 550; }
+
+/* Carousel slide 3: Why it matters, on the section colour */
+.why { background: {{ a.cat.colour }}; color: #fff; }
+.why .kicker { color: #FFE9A8; }
+.why h2 { color: #FFE9A8; }
+.why .text { font-family: "Source Serif 4", Georgia, serif; font-size: {{ why_size }}px; line-height: 1.42; }
+.why .cta { margin-top: 48px; font-size: 38px; font-weight: 720; letter-spacing: -0.015em; }
+.why .brand { color: #fff; }
+.why .brand path[d^="M2 42"] { stroke: #fff; }
+</style>
+</head>
+<body>
+{% set brand %}
+<span class="brand">
+  <svg viewBox="0 0 48 48" aria-hidden="true">
+    <circle cx="24" cy="30" r="11" fill="#F2AE1C"/>
+    <g stroke="#F2AE1C" stroke-width="3.2" stroke-linecap="round"><path d="M24 6v6M8.4 14.4l4.2 4.2M39.6 14.4l-4.2 4.2M3 30h5M40 30h5"/></g>
+    <path d="M2 42h44" stroke="#132036" stroke-width="3.2" stroke-linecap="round"/>
+  </svg>{{ site.name }}
+</span>
+{% endset %}
+{% if variant == "ig" %}
+<div class="ig">
+  <div class="art">{{ cover(a.cat.colour, a.cat.icon, a.seed, 1080, 640) }}</div>
+  <div class="panel">
+    <p class="kicker">{{ icon(a.cat.icon, 34) }}{{ a.cat.name }}</p>
+    <h1 class="title">{{ a.title }}</h1>
+    {% if a.dek %}<p class="dek"{% if ig_size < 66 %} style="font-size: 30px"{% endif %}>{{ a.dek }}</p>{% endif %}
+    <div class="foot">{{ brand }}<span class="where">{{ a.location }}</span></div>
+  </div>
+</div>
+{% elif variant == "brief" %}
+<div class="slide">
+  <p class="kicker">{{ icon(a.cat.icon, 32) }}{{ a.cat.name }}</p>
+  <div class="middle">
+    <h2>In brief</h2>
+    <ul class="points">{% for p in a.key_points %}<li>{{ p }}</li>{% endfor %}</ul>
+  </div>
+  <div class="foot">{{ brand }}<span class="hint">{% if a.why %}Swipe for why it matters{% else %}Full story: link in bio{% endif %}</span></div>
+</div>
+{% elif variant == "why" %}
+<div class="slide why">
+  <p class="kicker">{{ icon(a.cat.icon, 32) }}{{ a.cat.name }}</p>
+  <div class="middle">
+    <h2>Why it matters</h2>
+    <p class="text">{{ a.why }}</p>
+    <p class="cta">Read the full story: link in bio</p>
+  </div>
+  <div class="foot">{{ brand }}</div>
+</div>
+{% else %}
+<div class="share">
+  <div class="art">{{ cover(a.cat.colour, a.cat.icon, a.seed, 500, 630) }}</div>
+  <div class="panel">
+    <p class="kicker">{{ icon(a.cat.icon, 26) }}{{ a.cat.name }}</p>
+    <h1 class="title">{{ a.title }}</h1>
+    <div class="foot">{{ brand }}</div>
+  </div>
+</div>
+{% endif %}
+</body>
+</html>

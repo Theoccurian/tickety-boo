@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% from "_macros.html" import support_line, newsletter_box %}
+{% block title %}About | {{ site.name }}{% endblock %}
+{% block description %}How {{ site.name }} finds, writes and checks its good news stories, where they come from, and how to report a mistake.{% endblock %}
+{% block main %}
+<article class="story">
+  <header class="story__head wrap-narrow">
+    <h1 class="story__title">About {{ site.name }}</h1>
+    <p class="story__dek">{{ site.description }}</p>
+  </header>
+  <div class="prose wrap-narrow">
+    <h2>What we publish</h2>
+    <p>Real stories of things going right: a species recovering, a treatment that works, a community that pulled together. Every story reports something that has actually happened. Opinion pieces, adverts, predictions and party politics are left out.</p>
+
+    <h2>How we make our stories</h2>
+    <p>Several times a day we look through reporting from established news outlets for genuinely positive stories. Each one is then written up in our own words as a short summary, with AI helping with the drafting.</p>
+    <p>Every draft is checked against the original report so that names, numbers and quotes match what was published, and drafts that can't be fully checked are dropped{% if approval %}. A person then reads and approves each story before it goes live{% endif %}. Every story links to the outlet that first reported it, and we encourage you to read the original.</p>
+
+    <h2>Where our stories come from</h2>
+    <p>Our regular sources include:</p>
+    <ul>
+      {% for f in feeds %}<li>{{ f.name }}</li>{% endfor %}
+    </ul>
+
+    <h2 id="corrections">Corrections</h2>
+    <p>If something we've published doesn't match the original report, we'll correct it and update the story's date.{% if site.contact_email %} Email <a href="mailto:{{ site.contact_email }}">{{ site.contact_email }}</a> with the link and what's wrong.{% endif %}</p>
+
+    <h2>How we're funded</h2>
+    <p>{{ site.name }} is free to read. It's supported by reader donations{% if partners %} and by paid partnerships with sustainable brands, which are always clearly labelled and never affect which stories we publish{% endif %}.</p>
+    {% if site.contact_email %}
+    <h2>Get in touch</h2>
+    <p>For corrections, story tips or partnerships: <a href="mailto:{{ site.contact_email }}">{{ site.contact_email }}</a>.</p>
+    {% endif %}
+  </div>
+</article>
+<div class="wrap-narrow after-story">
+  {{ support_line() }}
+  {{ newsletter_box() }}
+</div>
+{% endblock %}

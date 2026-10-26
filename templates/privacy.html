@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Privacy | {{ site.name }}{% endblock %}
+{% block description %}What information {{ site.name }} collects, why, and your choices.{% endblock %}
+{% block main %}
+<article class="story">
+  <header class="story__head wrap-narrow">
+    <h1 class="story__title">Privacy</h1>
+    <p class="story__dek">{{ site.name }} collects as little about you as possible. Here's exactly what, and why.</p>
+  </header>
+  <div class="prose wrap-narrow">
+    <h2>Reading the site</h2>
+    <p>You can read every story without an account. We don't use advertising trackers or cookies that follow you around the web.</p>
+    {% if analytics.cloudflare_token or analytics.plausible_domain %}
+    <p>To understand how many people visit and which stories they read, we use {% if analytics.cloudflare_token %}Cloudflare Web Analytics{% else %}Plausible Analytics{% endif %}. It counts visits without cookies and without identifying you personally.</p>
+    {% endif %}
+    {% if newsletter.form_action or newsletter.subscribe_url %}
+    <h2>The newsletter</h2>
+    <p>If you sign up to the newsletter, we store your email address with our email provider, Kit, so we can send it to you. We use it only to send the newsletter, which can include offers from our partners. We never sell or share your address. Every email has an unsubscribe link, and unsubscribing removes you from the list.</p>
+    {% endif %}
+    {% if partners %}
+    <h2>Partner offers</h2>
+    <p>If you follow a link to one of our partners, their own privacy policy applies on their website. Some partner links tell the partner you came from {{ site.name }}, so they can honour the discount.</p>
+    {% endif %}
+    {% if support.donate_url %}
+    <h2>Donations</h2>
+    <p>Donations are handled by a separate payment service. We see your name and the amount if you choose to share them; we never see your card details.</p>
+    {% endif %}
+    <h2>Your rights</h2>
+    <p>Under UK data protection law you can ask what information we hold about you, ask us to correct it, or ask us to delete it.{% if site.contact_email %} Email <a href="mailto:{{ site.contact_email }}">{{ site.contact_email }}</a>.{% endif %} You can also complain to the Information Commissioner's Office at ico.org.uk.</p>
+  </div>
+</article>
+{% endblock %}
