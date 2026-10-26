@@ -25,6 +25,19 @@ instagram_caption: |-
   Full story: link in bio
 
   #Cameroon #SolarPower #CleanEnergy #MaternalHealth #TicketyBooNews #GoodNews
+image:
+  url: https://thumb.wikimedia.org/wikipedia/commons/thumb/0/0c/Veterinary_clinic%2C_2019_R%C3%A1kosliget.jpg/1920px-Veterinary_clinic%2C_2019_R%C3%A1kosliget.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail
+  caption: Solar panels on a health facility, the kind of system installed in Cameroon's Northwest region to power clinics and vaccine fridges (file photo)
+  credit: Globetrotter19
+  library: Wikimedia Commons
+  licence: CC BY-SA 3.0
+  licence_url: https://creativecommons.org/licenses/by-sa/3.0
+  source_page: https://commons.wikimedia.org/wiki/File:Veterinary_clinic,_2019_R%C3%A1kosliget.jpg
+  instagram_ok: false
+  kind: specific
+  file: 2026-10-26-displaced-young-cameroonians-trained-to-bring-solar-power-to-164.jpg
+  width: 1600
+  height: 1200
 ---
 
 An enterprising Cameroonian clean-energy company has trained at least 300 young people displaced by conflict to install solar power in health facilities across the country's Northwest region. So far, 164 facilities have received either solar lighting or solar-powered vaccine storage.
