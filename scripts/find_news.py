@@ -121,29 +121,46 @@ class AI:
         self.errors = anthropic.APIError
         self.scoring_model = cfg["ai"].get("scoring_model", "claude-haiku-5-5")
         self.writing_model = cfg["ai"].get("writing_model", "claude-sonnet-5-5")
+        # Some models don't accept a forced tool call; for those we ask nicely instead.
+        self.no_forced_tools: set[str] = set()
 
     def call(self, model: str, system: str, prompt: str, tool_name: str, schema: dict, max_tokens: int = 4000) -> dict:
         """Ask the model to fill in a structured form (a 'tool'), so we always get clean data back."""
         last_err = None
-        for attempt in range(4):
+        attempt = 0
+        while attempt < 4:
+            forced = model not in self.no_forced_tools
+            sys_text = system if forced else (
+                system + f"\n\nAlways give your answer by calling the {tool_name} tool, filling in every required field. Do not reply with plain text."
+            )
             try:
                 msg = self.client.messages.create(
                     model=model,
                     max_tokens=max_tokens,
-                    system=system,
+                    system=sys_text,
                     tools=[{"name": tool_name, "description": "Submit your answer.", "input_schema": schema}],
-                    tool_choice={"type": "tool", "name": tool_name},
+                    tool_choice={"type": "tool", "name": tool_name} if forced else {"type": "auto"},
                     messages=[{"role": "user", "content": prompt}],
                 )
                 for block in msg.content:
-                    if block.type == "tool_use":
+                    if block.type == "tool_use" and block.name == tool_name:
+                        missing = [k for k in schema.get("required", []) if k not in block.input]
+                        if missing:
+                            raise RuntimeError(f"answer was missing {', '.join(missing)}")
                         return block.input
                 raise RuntimeError("model returned no structured answer")
             except (self.errors, RuntimeError) as e:
+                text = str(e)
+                if forced and "tool_choice" in text and "not supported" in text:
+                    # This model can't be forced to use a tool: switch method and retry straight away.
+                    self.no_forced_tools.add(model)
+                    log(f"    {model} needs a different request style; switching")
+                    continue
                 last_err = e
                 wait = 2 ** attempt * 5
                 log(f"    AI call failed ({e}); retrying in {wait}s")
                 time.sleep(wait)
+                attempt += 1
         raise RuntimeError(f"AI call failed after retries: {last_err}")
 
 
