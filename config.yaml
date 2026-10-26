@@ -126,7 +126,8 @@ partners_page:
 partners: []
 
 # The sections of the site. You can rename these, change colours, or add new ones.
-# "icon" must be one of: health, environment, science, people, kindness, animals, technology
+# "icon" must be one of: health, environment, science, people, kindness, animals, technology, history
+# "guide" (optional) tells the robot what belongs in each section.
 categories:
   - slug: health
     name: Health
@@ -143,6 +144,7 @@ categories:
     colour: "#5B4BD1"
     icon: science
     description: "Discoveries that expand what we know."
+    guide: "new research and discoveries: physics, space, biology, chemistry, climate science. Not archaeology or history."
   - slug: people
     name: People
     colour: "#C2620F"
@@ -163,6 +165,12 @@ categories:
     colour: "#2B62C4"
     icon: technology
     description: "Inventions and ideas making life better."
+  - slug: history
+    name: History
+    colour: "#8B5E34"
+    icon: history
+    description: "Heritage saved, the past uncovered and old places given new life."
+    guide: "archaeology, historic finds, heritage buildings restored, museums, lost artefacts returned, anniversaries and local history projects."
 
 # Where stories come from. Any news site with an RSS feed can be added.
 feeds:

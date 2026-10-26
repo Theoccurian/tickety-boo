@@ -2,7 +2,7 @@
 title: Islanders' crowdfunded dig reveals Lismore's early monastery was a major centre
 dek: A community-funded excavation on Scotland's Lismore Island has uncovered burials, workshops and precious-metal debris, suggesting its early Christian monastery was far more important than once thought.
 date: '2026-10-26T16:23:04+00:00'
-category: science
+category: history
 location: Scotland, UK
 tags:
 - Archaeology

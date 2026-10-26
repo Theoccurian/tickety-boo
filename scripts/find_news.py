@@ -196,7 +196,7 @@ def score_candidates(ai: AI, cfg: dict, candidates: list[dict], recent: list[str
                         "id": {"type": "integer"},
                         "qualifies": {"type": "boolean"},
                         "score": {"type": "integer", "minimum": 1, "maximum": 10},
-                        "category": {"type": "string", "enum": cats},
+                        "category": {"type": "string", "enum": cats, "description": category_guide(cfg)},
                         "duplicate": {"type": "boolean"},
                     },
                     "required": ["id", "qualifies", "score", "category", "duplicate"],
@@ -254,7 +254,14 @@ Strict rules:
 Set usable=false (and leave the other fields brief) if the source text is too thin to write 250 accurate words, is not actually good news, is promotional/opinion, or describes something that hasn't happened yet."""
 
 
-def article_schema(cats: list[str]) -> dict:
+def category_guide(cfg: dict) -> str:
+    """Tells the AI what each section is for, so stories land in the right one."""
+    return "The section that best fits. " + "; ".join(
+        f"{c['slug']}: {c.get('guide') or c.get('description', '')}" for c in cfg["categories"]
+    )
+
+
+def article_schema(cats: list[str], guide: str = "") -> dict:
     return {
         "type": "object",
         "properties": {
@@ -262,7 +269,7 @@ def article_schema(cats: list[str]) -> dict:
             "reason_if_unusable": {"type": "string"},
             "headline": {"type": "string"},
             "dek": {"type": "string"},
-            "category": {"type": "string", "enum": cats},
+            "category": {"type": "string", "enum": cats, **({"description": guide} if guide else {})},
             "location": {"type": "string"},
             "tags": {"type": "array", "items": {"type": "string"}, "maxItems": 5},
             "body_markdown": {"type": "string"},
@@ -315,7 +322,7 @@ def write_one(ai: AI, cfg: dict, cand: dict, source_text: str) -> dict | None:
         f"Original headline: {cand['title']}\n\n"
         f"SOURCE TEXT:\n<<<\n{source_text}\n>>>"
     )
-    draft = ai.call(ai.writing_model, system, prompt, "submit_article", article_schema(cats), max_tokens=3000)
+    draft = ai.call(ai.writing_model, system, prompt, "submit_article", article_schema(cats, category_guide(cfg)), max_tokens=3000)
     if not draft.get("usable"):
         log(f"    skipped by writer: {draft.get('reason_if_unusable', 'not usable')}")
         return None
@@ -346,7 +353,7 @@ def write_one(ai: AI, cfg: dict, cand: dict, source_text: str) -> dict | None:
             + "Problems that must be fixed:\n" + "\n".join(f"- {p}" for p in problems)
             + "\n\nRewrite the whole article, fixing every problem and following all rules."
         )
-        draft = ai.call(ai.writing_model, system, fix_prompt, "submit_article", article_schema(cats), max_tokens=3000)
+        draft = ai.call(ai.writing_model, system, fix_prompt, "submit_article", article_schema(cats, category_guide(cfg)), max_tokens=3000)
         if not draft.get("usable"):
             return None
     return None
