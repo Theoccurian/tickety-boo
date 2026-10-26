@@ -25,6 +25,19 @@ instagram_caption: |-
   Full story: link in bio
 
   #Archaeology #Scotland #History #Lismore #TicketyBooNews #GoodNews
+image:
+  url: https://upload.wikimedia.org/wikipedia/commons/2/2c/The_Island_of_Lismore_-_geograph.org.uk_-_2436790.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled
+  caption: Lismore, a small island in Scotland's Inner Hebrides (file photo)
+  credit: Colin Bews
+  library: Wikimedia Commons
+  licence: CC BY-SA 2.0
+  licence_url: https://creativecommons.org/licenses/by-sa/2.0
+  source_page: https://commons.wikimedia.org/wiki/File:The_Island_of_Lismore_-_geograph.org.uk_-_2436790.jpg
+  instagram_ok: false
+  kind: specific
+  file: 2026-10-26-islanders-crowdfunded-dig-reveals-lismores-early-monastery-was-a.jpg
+  width: 1024
+  height: 768
 ---
 
 Residents of Lismore, a small island in Scotland's Inner Hebrides, have helped to show that the early medieval monastery on their doorstep was a busy hub of worship, skilled craftwork and learning. Researchers now think its standing may have matched that of some of the most celebrated monastic sites in Britain at the time.
