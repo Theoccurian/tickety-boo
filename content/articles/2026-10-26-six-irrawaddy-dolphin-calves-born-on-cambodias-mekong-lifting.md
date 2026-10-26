@@ -25,6 +25,19 @@ instagram_caption: |-
   Full story: link in bio
 
   #Dolphins #Cambodia #Conservation #Wildlife #TicketyBooNews #GoodNews
+image:
+  url: https://thumb.wikimedia.org/wikipedia/commons/thumb/6/6f/Orcaella_brevirostris_-_Long_Vu_-_99590612.jpeg/1920px-Orcaella_brevirostris_-_Long_Vu_-_99590612.jpeg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail
+  caption: An Irrawaddy dolphin in the Mekong River (file photo)
+  credit: Long Vu
+  library: Wikimedia Commons
+  licence: CC BY 4.0
+  licence_url: https://creativecommons.org/licenses/by/4.0
+  source_page: https://commons.wikimedia.org/wiki/File:Orcaella_brevirostris_-_Long_Vu_-_99590612.jpeg
+  instagram_ok: true
+  kind: specific
+  file: 2026-10-26-six-irrawaddy-dolphin-calves-born-on-cambodias-mekong-lifting.jpg
+  width: 1600
+  height: 1066
 ---
 
 Six Irrawaddy dolphin calves have been born in the Mekong River in Cambodia this calving season, taking the local population to 118.
