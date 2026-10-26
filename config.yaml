@@ -31,7 +31,7 @@ publishing:
   articles_per_run: 3
   # Stories are rated 1–10 for how genuinely uplifting and newsworthy they are.
   # Only stories at or above this score are written up.
-  min_score: 7
+  min_score: 6
   # Only consider stories published in the last this-many hours.
   max_age_hours: 48
   # false = every story waits for you to approve it in GitHub (recommended).
