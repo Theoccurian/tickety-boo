@@ -1,0 +1,68 @@
+name: Publish website
+
+on:
+  push:
+    branches: [main]
+  workflow_run:
+    workflows: ["Find good news"]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - run: python scripts/build_site.py
+
+      - uses: actions/cache@v4
+        with:
+          path: .social-cache
+          key: social-${{ github.run_id }}
+          restore-keys: social-
+
+      - run: python -m playwright install --with-deps chromium
+
+      - run: python scripts/make_social_images.py
+
+      - name: Publish to Cloudflare
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy
+
+  announce:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: pip install requests pyyaml
+      - name: Tell search engines about new stories
+        run: |
+          sleep 30
+          python scripts/ping_search_engines.py
