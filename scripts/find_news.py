@@ -30,9 +30,10 @@ import requests
 import trafilatura
 
 from common import (
-    ARTICLES_DIR, NEW_ARTICLES_FILE, SEEN_FILE,
+    ARTICLES_DIR, NEW_ARTICLES_FILE, PHOTOS_DIR, SEEN_FILE,
     load_config, load_json, save_json, slugify, write_article,
 )
+from images import find_image, save_photo
 
 USER_AGENT = "Mozilla/5.0 (compatible; GoodNewsBot/1.0; +https://github.com)"
 NOW = dt.datetime.now(dt.timezone.utc)
@@ -124,7 +125,7 @@ class AI:
         # Some models don't accept a forced tool call; for those we ask nicely instead.
         self.no_forced_tools: set[str] = set()
 
-    def call(self, model: str, system: str, prompt: str, tool_name: str, schema: dict, max_tokens: int = 4000) -> dict:
+    def call(self, model: str, system: str, prompt: str | list, tool_name: str, schema: dict, max_tokens: int = 4000) -> dict:
         """Ask the model to fill in a structured form (a 'tool'), so we always get clean data back."""
         last_err = None
         attempt = 0
@@ -171,6 +172,7 @@ A story qualifies only if ALL of these are true:
 - The outcome is clearly positive for people, animals or the planet.
 - It is not mainly about politics, party politics, war, crime, death or disaster (a positive story set against tragedy, such as a rescue, is fine only if the positive part is the main point).
 - It is not celebrity gossip or a sponsored/promotional story.
+- It is about ONE story, not a roundup or digest of several stories (e.g. "This week's good news", "5 things that went right").
 
 Score qualifying stories 1-10:
 - 9-10: significant real-world impact, widely relevant, uplifting, clearly newsworthy
@@ -240,14 +242,14 @@ Strict rules:
 1. Use ONLY facts found in the SOURCE TEXT. Never add names, numbers, dates, places, quotes or claims that are not in it. If unsure, leave it out.
 2. Write entirely in your own words with your own sentence structure. Never copy or lightly reword sentences from the source.
 3. At most ONE direct quote, under 15 words, copied exactly from the source and attributed to the person who said it.
-4. Tone: warm, clear and factual. No hype, no exclamation marks, no clichés ("heartwarming", "restores faith in humanity", "game-changer").
+4. Tone: warm, clear and factual, with a light English accent: the voice of a good-humoured British newspaper. Where it fits naturally, use classic English phrasing and adjectives and fond, characterful adjectives for the people and creatures in the story: "dashing young calves", "a good sport", "a plucky little charity", "a sprightly 90-year-old", "rather good news", "no mean feat", "a cracking result", "splendid", "chuffed", "a welcome boost", "on the up". Use one or two such touches per article, never more, and never in the headline, in quotes, in key points or in place of a precise fact. Understated rather than twee: no "jolly hockey sticks", no "guv'nor", no puns on the site name. No hype, no exclamation marks, no clichés ("heartwarming", "restores faith in humanity", "game-changer").
 5. Body: 250-450 words in short paragraphs (2-4 sentences each), opening with the key news, not background. No headings except one final section headed exactly "## Why it matters": one paragraph explaining the significance using the source and widely established general knowledge only (no new statistics).
 6. Headline: specific and accurate, sentence case, under 90 characters, no clickbait, no question headlines.
 7. Standfirst (dek): one sentence of 15-30 words summarising the story.
 8. Location: the country or region where it happened (e.g. "Kenya", "Scotland, UK"), or "Global".
 9. Do not mention the source outlet in the body; the site credits it separately.
 10. Key points: exactly 3 short, self-contained factual statements (each under 20 words) summarising who, what, where and the outcome, so a reader or search engine can understand the story at a glance. Same facts rules apply.
-11. Instagram caption: 2-4 short, friendly sentences in your own words telling the story (same facts rules apply), at most one fitting emoji, then a blank line, then "Full story: link in bio", then a blank line, then 3-5 relevant hashtags plus {hashtags}.
+11. Instagram caption: 2-4 short, friendly sentences in your own words telling the story (same facts rules apply), with the same light English touch (one phrase at most), at most one fitting emoji, then a blank line, then "Full story: link in bio", then a blank line, then 3-5 relevant hashtags plus {hashtags}.
 
 Set usable=false (and leave the other fields brief) if the source text is too thin to write 250 accurate words, is not actually good news, is promotional/opinion, or describes something that hasn't happened yet."""
 
@@ -452,6 +454,16 @@ def main() -> None:
             "key_points": [p.strip() for p in art.get("key_points", []) if p.strip()][:3],
             "instagram_caption": art.get("instagram_caption", "").strip(),
         }
+        if cfg.get("images", {}).get("enabled", True):
+            log("    looking for a photo")
+            image = find_image(ai, meta["title"], meta["dek"], art["body_markdown"], log=log)
+            size = image and save_photo(image["url"], PHOTOS_DIR / f"{path.stem}.jpg")
+            if image and size:
+                image.update(file=f"{path.stem}.jpg", width=size[0], height=size[1])
+                meta["image"] = image
+                log(f"    photo: {image['caption']} ({image['library']})")
+            elif image:
+                log("    no photo: couldn't download the chosen one")
         write_article(path, meta, art["body_markdown"])
         used_sources.add(cand["source"])
         seen["recent_headlines"] += [meta["title"], cand["title"]]

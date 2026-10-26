@@ -1,6 +1,6 @@
 {% macro story_row(a, show_dek=true) -%}
 <article class="row" style="--c: {{ a.cat.colour }}">
-  <a class="row__thumb" href="{{ url(a.path) }}" tabindex="-1" aria-hidden="true">{{ cover(a.cat.colour, a.cat.icon, a.seed, 600, 600) }}</a>
+  <a class="row__thumb" href="{{ url(a.path) }}" tabindex="-1" aria-hidden="true">{{ photo(a, small=true) }}</a>
   <div class="row__text">
     <a class="kicker" href="{{ url('/category/' ~ a.cat.slug ~ '/') }}">{{ a.cat.name }}</a>
     <h3 class="row__title"><a href="{{ url(a.path) }}">{{ a.title }}</a></h3>
@@ -25,7 +25,7 @@
 {% if newsletter.form_action or newsletter.subscribe_url %}
 <section class="signup" id="newsletter" aria-labelledby="signup-h">
   <div class="signup__text">
-    <h2 class="signup__title" id="signup-h">{{ newsletter.title or 'Good news, in your inbox' }}</h2>
+    <h2 class="signup__title" id="signup-h">{{ newsletter.title or 'A spot of good news, in your inbox' }}</h2>
     <p>{{ newsletter.pitch or ('The best stories ' ~ (newsletter.frequency or 'each week') ~ ', in one short email.') }}{% if partners %} Subscribers also get discounts from our partners.{% endif %}</p>
   </div>
   {% if newsletter.form_action %}

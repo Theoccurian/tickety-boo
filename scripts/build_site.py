@@ -23,7 +23,7 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 from markupsafe import Markup
 
 import seo
-from common import ARTICLES_DIR, ROOT, load_config, published_at, read_article
+from common import ARTICLES_DIR, PHOTOS_DIR, ROOT, load_config, published_at, read_article
 
 OUT = ROOT / "public"
 CARDS = ROOT / "build" / "cards"
@@ -84,6 +84,24 @@ def cover_svg(colour: str, icon: str, seed: int, w: int = 1200, h: int = 630, la
     )
 
 
+def photo_html(a: dict, small: bool = False, eager: bool = False) -> Markup:
+    """The story's real photo if it has one, otherwise its sunrise illustration."""
+    p = a.get("photo")
+    if not p:
+        w, h = (600, 600) if small else (1200, 630)
+        return cover_svg(a["cat"]["colour"], a["cat"]["icon"], a["seed"], w, h, label="" if small else a["cat"]["name"] + " illustration")
+    src = p["thumb"] if small else p["src"]
+    alt = "" if small else escape(p.get("alt", ""), {'"': "&quot;"})
+    load = 'fetchpriority="high"' if eager else 'loading="lazy"'
+    return Markup(f'<img class="photo" src="{src}" alt="{alt}" width="{p["width"]}" height="{p["height"]}" {load} decoding="async">')
+
+
+def card_photo(a: dict) -> str:
+    """Photo for the Instagram/link-preview cards, only if its licence lets us crop it."""
+    p = a.get("photo")
+    return p["file_uri"] if p and p.get("ig_ok") else ""
+
+
 # ─── Helpers ─────────────────────────────────────────────────────────────────
 
 def nice_date(d: dt.datetime) -> str:
@@ -135,6 +153,17 @@ def load_articles(cats: dict) -> list[dict]:
         md.reset()
         a["html"] = Markup(md.convert(a["body"]))
         a["seed"] = a.get("cover_seed") or zlib.crc32(a["slug"].encode()) % 10**6
+        a["photo"] = None
+        img = a.get("image") or {}
+        if isinstance(img, dict) and img.get("file") and (PHOTOS_DIR / img["file"]).exists():
+            caption = str(img.get("caption") or "")
+            a["photo"] = {
+                **img, "local": PHOTOS_DIR / img["file"], "file_uri": (PHOTOS_DIR / img["file"]).as_uri(),
+                "src": f"/images/{a['slug']}.jpg", "thumb": f"/images/{a['slug']}-sm.jpg",
+                "width": int(img.get("width") or 1600), "height": int(img.get("height") or 1067),
+                "alt": re.sub(r"^Illustrative photo:\s*|\s*\(file photo\)$", "", caption),
+                "ig_ok": bool(img.get("instagram_ok")),
+            }
         items.append(a)
     items.sort(key=lambda x: x["date"], reverse=True)
     return items
@@ -146,6 +175,24 @@ def title_size(title: str, sizes: tuple) -> int:
         if n <= limit:
             return size
     return sizes[-1]
+
+
+def write_photos(articles: list[dict]) -> None:
+    """Copies each story's photo into the site, plus a small square-ish version for lists."""
+    from PIL import Image
+    (OUT / "images").mkdir(exist_ok=True)
+    for a in articles:
+        p = a["photo"]
+        if not p:
+            continue
+        try:
+            shutil.copyfile(p["local"], OUT / "images" / f"{a['slug']}.jpg")
+            with Image.open(p["local"]) as img:
+                img.thumbnail((640, 640))
+                img.convert("RGB").save(OUT / "images" / f"{a['slug']}-sm.jpg", "JPEG", quality=78, optimize=True)
+        except OSError as e:
+            print(f"  ! Photo for {a['slug']} couldn't be used ({e}); using the illustration")
+            a["photo"] = None
 
 
 def paginate(items: list, per_page: int) -> list[list]:
@@ -166,10 +213,19 @@ def main() -> None:
     now = dt.datetime.now(dt.timezone.utc)
     this_week = sum(1 for a in articles if now - a["date"] < dt.timedelta(days=7))
 
+    # This week's homepage headline: a new English phrase every Monday.
+    phrases = [p for p in (site.get("tagline_phrases") or []) if p]
+    if phrases and "{phrase}" in (site.get("rotating_tagline") or ""):
+        weeks = (now.date() - dt.date(2026, 10, 26)).days // 7  # the first phrase is used from Monday 26 October 2026
+        site["headline"] = site["rotating_tagline"].replace("{phrase}", phrases[weeks % len(phrases)])
+    else:
+        site["headline"] = site["tagline"]
+
     if OUT.exists():
         shutil.rmtree(OUT)
     OUT.mkdir()
     shutil.copytree(ROOT / "static", OUT / "static")
+    write_photos(articles)
 
     env = Environment(loader=FileSystemLoader(ROOT / "templates"), autoescape=select_autoescape(["html"]))
 
@@ -180,7 +236,7 @@ def main() -> None:
     partners = [p for p in (cfg.get("partners") or []) if p and p.get("name")]
     env.globals.update(
         site=site, categories=cfg["categories"], url=url, abs_url=lambda p: base_url + p,
-        icon=icon_svg, cover=cover_svg, year=now.year, approval=not cfg["publishing"].get("auto_publish"),
+        icon=icon_svg, cover=cover_svg, photo=photo_html, year=now.year, approval=not cfg["publishing"].get("auto_publish"),
         feeds=cfg.get("feeds", []), support=cfg.get("support") or {}, newsletter=cfg.get("newsletter") or {},
         analytics=cfg.get("analytics") or {}, partners=partners,
         partners_cfg=cfg.get("partners_page") or {},
@@ -235,7 +291,7 @@ def main() -> None:
     design_hash = hashlib.md5((ROOT / "templates" / "social_card.html").read_bytes()).hexdigest()[:8]
     manifest = []
     for a in articles:
-        key = (f"{a['title']}|{a['dek']}|{a['category']}|{a['seed']}|{a['location']}|{site['name']}|{a['cat']['colour']}|"
+        key = (f"{card_photo(a)}|{a['title']}|{a['dek']}|{a['category']}|{a['seed']}|{a['location']}|{site['name']}|{a['cat']['colour']}|"
                f"{'|'.join(a['key_points'])}|{a['why']}|{design_hash}")
         h = hashlib.md5(key.encode()).hexdigest()[:10]
         variants = [("ig", 1080, 1350, f"{a['slug']}.jpg"), ("share", 1200, 630, f"{a['slug']}-share.jpg")]
@@ -247,7 +303,7 @@ def main() -> None:
         for variant, w, ht, out in variants:
             html_path = CARDS / f"{a['slug']}-{variant}.html"
             html_path.write_text(card_tpl.render(
-                a=a, variant=variant, w=w, h=ht, fonts_dir=(ROOT / "static" / "fonts").as_uri(),
+                a=a, variant=variant, w=w, h=ht, card_photo=card_photo(a), fonts_dir=(ROOT / "static" / "fonts").as_uri(),
                 ig_size=title_size(a["title"], (86, 76, 66, 62)), share_size=title_size(a["title"], (58, 50, 44, 40)),
                 brief_size=52 if points_len <= 70 else 46 if points_len <= 100 else 40,
                 why_size=44 if len(a["why"]) <= 280 else 40 if len(a["why"]) <= 420 else 35 if len(a["why"]) <= 560 else 31,

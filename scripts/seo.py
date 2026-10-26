@@ -103,6 +103,21 @@ def home_schema(site: Site, articles: list[dict]) -> Markup:
     })
 
 
+def photo_object(site: "Site", a: dict) -> dict:
+    p = a["photo"]
+    obj = {
+        "@type": "ImageObject", "url": site.abs(p["src"]), "contentUrl": site.abs(p["src"]),
+        "width": p["width"], "height": p["height"], "caption": p.get("caption", ""),
+        "creditText": f"{p.get('credit', '')} / {p.get('library', '')}".strip(" /"),
+        "creator": {"@type": "Person", "name": p.get("credit", "")},
+    }
+    if p.get("licence_url"):
+        obj["license"] = p["licence_url"]
+    if p.get("source_page"):
+        obj["acquireLicensePage"] = p["source_page"]
+    return obj
+
+
 def article_schema(site: Site, a: dict) -> Markup:
     modified = a.get("updated_dt") or a["date"]
     article = {
@@ -112,7 +127,7 @@ def article_schema(site: Site, a: dict) -> Markup:
         "headline": a["title"][:110],
         "description": a.get("dek", ""),
         "abstract": " ".join(a.get("key_points", [])) or a.get("dek", ""),
-        "image": [site.abs(f"/social/{a['slug']}-share.jpg"), site.abs(f"/social/{a['slug']}.jpg")],
+        "image": ([photo_object(site, a)] if a.get("photo") else []) + [site.abs(f"/social/{a['slug']}-share.jpg"), site.abs(f"/social/{a['slug']}.jpg")],
         "datePublished": iso(a["date"]),
         "dateModified": iso(modified),
         "author": {"@type": "Organization", "name": site.name, "url": site.abs("/about/")},
@@ -189,7 +204,8 @@ def write_sitemaps(out: Path, site: Site, articles: list[dict], cats: dict) -> N
         modified = a.get("updated_dt") or a["date"]
         rows.append(
             f"<url><loc>{site.abs(a['path'])}</loc><lastmod>{iso(modified)}</lastmod>"
-            f"<image:image><image:loc>{site.abs(f'/social/{a["slug"]}-share.jpg')}</image:loc></image:image></url>"
+            + (f"<image:image><image:loc>{site.abs(a['photo']['src'])}</image:loc></image:image>" if a.get("photo") else "")
+            + f"<image:image><image:loc>{site.abs(f'/social/{a["slug"]}-share.jpg')}</image:loc></image:image></url>"
         )
     (out / "sitemap.xml").write_text(
         '<?xml version="1.0" encoding="UTF-8"?>'

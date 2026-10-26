@@ -4,14 +4,14 @@
 {% block main %}
 {% if page == 1 %}
 <section class="intro wrap">
-  <h1 class="intro__line">{{ site.tagline }}</h1>
+  <h1 class="intro__line">{{ site.headline }}</h1>
   {% if total %}<p class="intro__count"><strong>{{ this_week }}</strong> {{ 'story' if this_week == 1 else 'stories' }} this week</p>{% endif %}
 </section>
 {% endif %}
 
 {% if lead %}
 <section class="lead wrap" style="--c: {{ lead.cat.colour }}">
-  <a class="lead__art" href="{{ url(lead.path) }}" tabindex="-1" aria-hidden="true">{{ cover(lead.cat.colour, lead.cat.icon, lead.seed) }}</a>
+  <a class="lead__art" href="{{ url(lead.path) }}" tabindex="-1" aria-hidden="true">{{ photo(lead, eager=true) }}</a>
   <div class="lead__text">
     <a class="kicker" href="{{ url('/category/' ~ lead.cat.slug ~ '/') }}">{{ lead.cat.name }}</a>
     <h2 class="lead__title"><a href="{{ url(lead.path) }}">{{ lead.title }}</a></h2>

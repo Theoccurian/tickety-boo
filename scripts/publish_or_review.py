@@ -10,10 +10,11 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+import os
 import subprocess
 import tempfile
 
-from common import ARTICLES_DIR, NEW_ARTICLES_FILE, load_config, load_json
+from common import ARTICLES_DIR, NEW_ARTICLES_FILE, PHOTOS_DIR, load_config, load_json
 
 LABEL = "new-article"
 
@@ -42,10 +43,25 @@ def has_changes(*paths: str) -> bool:
     return bool(run("git", "status", "--porcelain", "--", *paths).strip())
 
 
-def pr_body(a: dict, cat_names: dict) -> str:
+def photo_section(a: dict, branch: str = "") -> str:
+    img = a.get("image")
+    if not img:
+        return "**Photo:** none found that clearly shows the right thing, so it'll use the sunrise illustration.\n"
+    where = "Instagram and the website" if img.get("instagram_ok") else "the website only (its licence doesn't allow the Instagram crop)"
+    repo = os.environ.get("GITHUB_REPOSITORY", "")
+    src = f"https://raw.githubusercontent.com/{repo}/{branch}/content/photos/{img['file']}" if repo and branch and img.get("file") else img["url"]
+    return (f'<img src="{src}" alt="" width="480">\n\n'
+            f'**Photo:** {img["caption"]}  \n'
+            f'Credit: {img["credit"]} / [{img["library"]}]({img["source_page"]}), {img["licence"]}. Used on {where}.\n\n'
+            "*Wrong photo?* Open **Files changed**, edit the article file and delete the whole `image:` section, then merge.\n")
+
+
+def pr_body(a: dict, cat_names: dict, branch: str = "") -> str:
     return f"""## {a['title']}
 
 *{a['dek']}*
+
+{photo_section(a, branch)}
 
 **Section:** {cat_names.get(a['category'], a['category'])}  |  **Where:** {a['location']}
 
@@ -100,8 +116,8 @@ def main() -> None:
     run("git", "config", "user.email", "41898282+github-actions[bot]@users.noreply.github.com")
 
     if pub.get("auto_publish"):
-        if has_changes("content/articles", "data/seen.json"):
-            run("git", "add", "content/articles", "data/seen.json")
+        if has_changes("content", "data/seen.json"):
+            run("git", "add", "content", "data/seen.json")
             run("git", "commit", "-m", f"Publish {len(new)} new article(s)")
             push_main()
         return
@@ -120,10 +136,13 @@ def main() -> None:
         branch = f"article/{a['file'][:-3]}"
         run("git", "switch", "-c", branch)
         run("git", "add", str(ARTICLES_DIR / a["file"]))
+        photo = (a.get("image") or {}).get("file")
+        if photo and (PHOTOS_DIR / photo).exists():
+            run("git", "add", str(PHOTOS_DIR / photo))
         run("git", "commit", "-m", f"New article: {a['title']}")
         run("git", "push", "-u", "origin", branch)
         with tempfile.NamedTemporaryFile("w", suffix=".md", delete=False, encoding="utf-8") as f:
-            f.write(pr_body(a, cat_names))
+            f.write(pr_body(a, cat_names, branch))
         run("gh", "pr", "create", "--base", "main", "--head", branch,
             "--title", a["title"], "--body-file", f.name, "--label", LABEL, check=False)
         run("git", "switch", "main")

@@ -7,6 +7,22 @@ site:
   name: "Tickety-Boo News"
   short_name: "TBN"
   tagline: "Real stories of things going right, from around the world."
+  # The homepage headline changes every Monday, working through this list.
+  # {phrase} is swapped for one of the phrases below. Add, remove or reorder as you like.
+  rotating_tagline: "Real stories of things {phrase}, from around the world."
+  tagline_phrases:
+    - "ticking along nicely"
+    - "going swimmingly"
+    - "coming up roses"
+    - "looking up"
+    - "going like a dream"
+    - "going famously"
+    - "coming good"
+    - "on the up"
+    - "going like clockwork"
+    - "turning out rather splendidly"
+    - "shaping up nicely"
+    - "going jolly well"
   description: "A daily round-up of positive, true news stories from around the world, each one linked to its original source."
   language: "en-GB"
   # Your site's web address, e.g. "https://ticketyboonews.co.uk" (no slash at the end).
@@ -47,6 +63,13 @@ ai:
   scoring_model: "claude-haiku-5-5"
   # Better writer, used for the articles themselves and the fact-check.
   writing_model: "claude-sonnet-5-5"
+
+images:
+  # true = the robot looks for a real photo for each story. Specific subjects (a named species,
+  # place or landmark) only get an exact match from Wikimedia Commons, labelled "file photo".
+  # Everyday subjects get a stock photo from Pixabay, labelled "Illustrative photo".
+  # An AI checks every photo first; if none is right, the story keeps its sunrise illustration.
+  enabled: true
 
 instagram:
   # Switch to true once you've connected Instagram (see SETUP.md, part 2).
@@ -153,10 +176,6 @@ feeds:
     url: "https://www.optimistdaily.com/feed/"
   - name: Good Good Good
     url: "https://www.goodgoodgood.co/articles/rss.xml"
-  - name: Squirrel News
-    url: "https://squirrel-news.net/feed/"
-  - name: Fix The News
-    url: "https://substack.fixthenews.com/feed"
   - name: Happy Eco News
     url: "https://happyeconews.com/feed"
   - name: BBC News (Science & Environment)

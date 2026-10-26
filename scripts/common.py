@@ -12,6 +12,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parent.parent
 ARTICLES_DIR = ROOT / "content" / "articles"
+PHOTOS_DIR = ROOT / "content" / "photos"
 DATA_DIR = ROOT / "data"
 SEEN_FILE = DATA_DIR / "seen.json"
 NEW_ARTICLES_FILE = DATA_DIR / "new_articles.json"

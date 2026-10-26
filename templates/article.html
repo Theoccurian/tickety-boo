@@ -5,6 +5,7 @@
 {% block og_type %}article{% endblock %}
 {% block share_image %}
 <meta property="og:image" content="{{ abs_url('/social/' ~ a.slug ~ '-share.jpg') }}">
+{% if a.photo %}<link rel="preload" as="image" href="{{ url(a.photo.src) }}" fetchpriority="high">{% endif %}
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="{{ a.title }}">
@@ -25,7 +26,12 @@
     <p class="story__dek">{{ a.dek }}</p>
     <p class="meta"><span>{{ a.location }}</span><time datetime="{{ a.date.isoformat() }}">{{ a.date_nice }}</time><span>{{ a.minutes }} min read</span></p>
   </header>
-  <figure class="story__art wrap-wide">{{ cover(a.cat.colour, a.cat.icon, a.seed, label=a.cat.name ~ ' illustration') }}</figure>
+  <figure class="story__art wrap-wide">
+    {{ photo(a, eager=true) }}
+    {% if a.photo %}
+    <figcaption class="story__caption">{{ a.photo.caption }}. <span class="story__credit">Photo: {% if a.photo.source_page %}<a href="{{ a.photo.source_page }}" rel="noopener" target="_blank">{{ a.photo.credit }}</a>{% else %}{{ a.photo.credit }}{% endif %}{% if a.photo.library and a.photo.library != a.photo.credit %} / {{ a.photo.library }}{% endif %}{% if a.photo.licence %}, {% if a.photo.licence_url %}<a href="{{ a.photo.licence_url }}" rel="license noopener" target="_blank">{{ a.photo.licence }}</a>{% else %}{{ a.photo.licence }}{% endif %}{% endif %}</span></figcaption>
+    {% endif %}
+  </figure>
   {% if a.key_points %}
   <aside class="brief wrap-narrow" aria-labelledby="brief-h">
     <h2 class="brief__title" id="brief-h">In brief</h2>

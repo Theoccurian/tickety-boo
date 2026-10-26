@@ -74,6 +74,7 @@ p { margin: 0; }
 .skip:focus { left: 1rem; top: 1rem; }
 
 .cover-art { width: 100%; height: 100%; }
+.photo { display: block; width: 100%; height: 100%; object-fit: cover; background: var(--c, #ddd); }
 
 /* ─── Masthead ───────────────────────────────────────────────────────────── */
 .masthead { padding-top: 1.4rem; }
@@ -165,7 +166,10 @@ p { margin: 0; }
 .story__title { font-size: clamp(2.1rem, 5.2vw, 3.5rem); font-weight: 730; line-height: 1.03; letter-spacing: -0.032em; text-wrap: balance; }
 .story__dek { font-family: var(--serif); font-size: clamp(1.15rem, 2vw, 1.35rem); line-height: 1.5; color: var(--muted); }
 .story__art { margin-block: 0 clamp(2rem, 4vw, 3rem); }
-.story__art svg { aspect-ratio: 1200 / 630; border-radius: var(--radius-art); overflow: hidden; }
+.story__art svg, .story__art .photo { aspect-ratio: 1200 / 630; height: auto; border-radius: var(--radius-art); overflow: hidden; }
+.story__caption { margin-top: .6rem; font-size: .85rem; line-height: 1.45; color: var(--muted); }
+.story__credit { white-space: normal; }
+.story__caption a { color: inherit; text-decoration-thickness: 1px; text-underline-offset: 2px; }
 
 .prose { font-family: var(--serif); font-size: 1.2rem; line-height: 1.72; }
 .prose p, .prose ul { margin: 0 0 1.25em; }

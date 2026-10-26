@@ -12,6 +12,9 @@ body {
   -webkit-font-smoothing: antialiased; font-optical-sizing: auto;
 }
 .art svg { display: block; width: 100%; height: 100%; }
+.art { position: relative; overflow: hidden; }
+.art .ph { display: block; width: 100%; height: 100%; object-fit: cover; }
+.art .credit { position: absolute; right: 14px; bottom: 10px; font: 500 17px/1.2 "Bricolage Grotesque", sans-serif; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,.7); max-width: 80%; text-align: right; }
 .kicker { display: flex; align-items: center; gap: .4em; color: {{ a.cat.colour }}; font-weight: 680; }
 .kicker svg { width: 1.15em; height: 1.15em; }
 .title { font-weight: 720; letter-spacing: -0.032em; line-height: 1.04; text-wrap: balance; }
@@ -68,7 +71,7 @@ body {
 {% endset %}
 {% if variant == "ig" %}
 <div class="ig">
-  <div class="art">{{ cover(a.cat.colour, a.cat.icon, a.seed, 1080, 640) }}</div>
+  <div class="art">{% if card_photo %}<img class="ph" src="{{ card_photo }}" alt=""><span class="credit">Photo: {{ a.photo.credit }}{% if a.photo.library != a.photo.credit %} / {{ a.photo.library }}{% endif %}{% if a.photo.kind == "generic" %} (illustrative){% endif %}</span>{% else %}{{ cover(a.cat.colour, a.cat.icon, a.seed, 1080, 640) }}{% endif %}</div>
   <div class="panel">
     <p class="kicker">{{ icon(a.cat.icon, 34) }}{{ a.cat.name }}</p>
     <h1 class="title">{{ a.title }}</h1>
@@ -97,7 +100,7 @@ body {
 </div>
 {% else %}
 <div class="share">
-  <div class="art">{{ cover(a.cat.colour, a.cat.icon, a.seed, 500, 630) }}</div>
+  <div class="art">{% if card_photo %}<img class="ph" src="{{ card_photo }}" alt="">{% else %}{{ cover(a.cat.colour, a.cat.icon, a.seed, 500, 630) }}{% endif %}</div>
   <div class="panel">
     <p class="kicker">{{ icon(a.cat.icon, 26) }}{{ a.cat.name }}</p>
     <h1 class="title">{{ a.title }}</h1>
