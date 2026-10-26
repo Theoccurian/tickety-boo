@@ -31,10 +31,15 @@ PIXABAY_API = "https://pixabay.com/api/"
 # Share-alike (SA) photos are used on the site only, not cropped into Instagram slides.
 PLAN_SYSTEM = """You choose the photo for a news story on a good-news website. Honesty matters more than prettiness.
 
-Decide what a photo would need to show:
-- kind "specific": the story is about a named species, place, landmark, building, organisation, vehicle or object, where a photo of something else would mislead (e.g. Irrawaddy dolphins, the Mekong River, a named national park). The photo must show exactly that.
-- kind "generic": the story's subject is an everyday scene where any good photo of that kind of thing is honest as an illustration (e.g. children eating breakfast at school, solar panels on a roof, a nurse with a patient).
-- kind "none": no photo would be honest or useful (e.g. abstract policy, a named private person, a very specific event).
+Decide the kind of photo:
+- kind "specific": the story centres on a named species, place, landmark or building, where a photo of something else would mislead (e.g. Irrawaddy dolphins, Lismore Cathedral). The photo must show exactly that.
+- kind "generic": the subject is an everyday thing or scene where any good photo of that kind of thing is an honest illustration (e.g. solar panels, children eating breakfast, a nurse with a patient).
+- kind "none": no photo would be honest or useful (e.g. abstract policy, a named private person).
+
+Then give up to 3 photo options, from best to broadest. Each search is SHORT: 1-3 plain words, the way you'd search a photo library. Photo libraries need every word to match, so fewer words find more.
+Good: "solar panels", "Lismore Cathedral", "Isle of Lismore", "Irrawaddy dolphin", "school breakfast".
+Bad: "solar panels rural health clinic Africa", "lismore island scotland cathedral ruins".
+Broader options must still be honest for the story: for a dig on Lismore, the island or its cathedral is fine; a random Scottish castle is not. For a generic story, the plain everyday subject is fine (a solar clinic story can use "solar panels").
 
 Never ask for photos of identifiable private people. Prefer subjects over people where possible."""
 
@@ -42,11 +47,20 @@ PLAN_SCHEMA = {
     "type": "object",
     "properties": {
         "kind": {"type": "string", "enum": ["specific", "generic", "none"]},
-        "must_show": {"type": "string", "description": "Exactly what the photo must clearly show, e.g. 'an Irrawaddy dolphin'"},
-        "search_terms": {"type": "string", "description": "2-5 word search query for a photo library"},
-        "caption": {"type": "string", "description": "Short factual caption, e.g. 'An Irrawaddy dolphin in the Mekong River'. Must not claim it shows the people, animals or event in the story."},
+        "options": {
+            "type": "array", "maxItems": 3,
+            "items": {
+                "type": "object",
+                "properties": {
+                    "search": {"type": "string", "description": "1-3 word photo library search"},
+                    "must_show": {"type": "string", "description": "What the photo must clearly show, e.g. 'Lismore Cathedral' or 'solar panels'"},
+                    "caption": {"type": "string", "description": "Short factual caption for a photo of this, e.g. 'The Isle of Lismore'. Must not claim it shows the people or event in the story."},
+                },
+                "required": ["search", "must_show", "caption"],
+            },
+        },
     },
-    "required": ["kind", "must_show", "search_terms", "caption"],
+    "required": ["kind", "options"],
 }
 
 CHECK_SYSTEM = """You check candidate photos for a news story. Look at each image carefully.
@@ -178,29 +192,38 @@ def find_image(ai, story_title: str, dek: str, body: str, log=print) -> dict | N
         plan = ai.call(
             ai.scoring_model, PLAN_SYSTEM,
             f"Headline: {story_title}\nSummary: {dek}\n\nStory:\n{body[:2500]}",
-            "plan_photo", PLAN_SCHEMA, max_tokens=600,
+            "plan_photo", PLAN_SCHEMA, max_tokens=800,
         )
     except RuntimeError as e:
         log(f"    no photo: {e}")
         return None
     kind = plan.get("kind")
-    if kind == "none":
+    options = [o for o in (plan.get("options") or []) if isinstance(o, dict) and o.get("search")][:3]
+    if kind == "none" or not options:
         log("    no photo: subject isn't suitable for one")
         return None
+    for opt in options:
+        result = _try_option(ai, story_title, kind, opt, log)
+        if result:
+            return result
+    log("    no photo: nothing suitable found, keeping the illustration")
+    return None
 
+
+def _try_option(ai, story_title: str, kind: str, opt: dict, log) -> dict | None:
+    q = " ".join(opt["search"].split()[:4])
     if kind == "specific":
-        candidates = commons_candidates(plan["search_terms"])
+        candidates = commons_candidates(q)
     else:
-        q = plan["search_terms"]
         candidates = pixabay_candidates(q) or pexels_candidates(q) or commons_candidates(q)
     candidates = [c for c in candidates if c.get("thumb")][:6]
     if not candidates:
-        log(f"    no photo found for '{plan['search_terms']}'")
+        log(f"    '{q}': no photos found")
         return None
 
     content = [{"type": "text", "text": (
-        f"Story headline: {story_title}\nThe photo must clearly show: {plan['must_show']}\n"
-        f"Subject type: {kind} ({'must be exactly this subject' if kind == 'specific' else 'any honest photo of this kind of scene'})\n\n"
+        f"Story headline: {story_title}\nThe photo must clearly show: {opt['must_show']}\n"
+        f"Subject type: {kind} ({'must be exactly this subject' if kind == 'specific' else 'any honest photo of this kind of thing'})\n\n"
         "Candidates follow, numbered from 1."
     )}]
     shown = []
@@ -211,22 +234,21 @@ def find_image(ai, story_title: str, dek: str, body: str, log=print) -> dict | N
             content.append({"type": "text", "text": f"Photo {len(shown)}. Library description: {c['description'][:200]}"})
             content.append({"type": "image", "source": {"type": "base64", "media_type": data[0], "data": data[1]}})
     if not shown:
-        log("    no photo: couldn't download any candidates")
+        log(f"    '{q}': couldn't download any of the photos")
         return None
-    candidates = shown
     try:
         check = ai.call(ai.scoring_model, CHECK_SYSTEM, content, "choose_photo", CHECK_SCHEMA, max_tokens=500)
     except RuntimeError as e:
-        log(f"    no photo: couldn't check candidates ({e})")
+        log(f"    '{q}': couldn't check the photos ({e})")
         return None
     best = int(check.get("best") or 0)
-    if not (1 <= best <= len(candidates)):
-        log(f"    no photo: none clearly showed {plan['must_show']}")
+    if not (1 <= best <= len(shown)):
+        log(f"    '{q}': {len(shown)} photo(s), none clearly showed {opt['must_show']}")
         return None
 
-    c = candidates[best - 1]
+    c = shown[best - 1]
     label = "file photo" if kind == "specific" else "Illustrative photo"
-    caption = plan["caption"].rstrip(". ")
+    caption = opt["caption"].rstrip(". ")
     return {
         "url": c["full"],
         "caption": f"{caption} ({label})" if kind == "specific" else f"{label}: {caption}",
