@@ -70,6 +70,9 @@ images:
   # Everyday subjects get a stock photo from Pixabay, labelled "Illustrative photo".
   # An AI checks every photo first; if none is right, the story keeps its sunrise illustration.
   enabled: true
+  # Older stories without a photo get one looked for, this many per run (0 = off).
+  # Each photo found is sent to you for approval, just like a new story.
+  backfill_per_run: 2
 
 instagram:
   # Switch to true once you've connected Instagram (see SETUP.md, part 2).

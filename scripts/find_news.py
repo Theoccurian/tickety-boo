@@ -30,7 +30,8 @@ import requests
 import trafilatura
 
 from common import (
-    ARTICLES_DIR, NEW_ARTICLES_FILE, PHOTOS_DIR, SEEN_FILE,
+    ARTICLES_DIR, NEW_ARTICLES_FILE, PHOTO_CHECKED_FILE, PHOTO_UPDATES_FILE, PHOTOS_DIR, SEEN_FILE,
+    read_article,
     load_config, load_json, save_json, slugify, write_article,
 )
 from images import find_image, save_photo
@@ -367,6 +368,43 @@ def prune_seen(seen: dict) -> None:
     seen["recent_headlines"] = seen.get("recent_headlines", [])[-150:]
 
 
+def backfill_photos(cfg: dict, ai: "AI", just_written: list[str] = ()) -> None:
+    """Looks for photos for published stories that don't have one yet, a couple per run.
+    Each photo found is sent for approval; each story is only tried once."""
+    img_cfg = cfg.get("images", {})
+    per_run = int(img_cfg.get("backfill_per_run", 2))
+    if not img_cfg.get("enabled", True) or per_run <= 0:
+        return
+    checked = set(load_json(PHOTO_CHECKED_FILE, [])) | set(just_written)  # new stories already had their try
+    todo = []
+    for path in sorted(ARTICLES_DIR.glob("*.md"), reverse=True):
+        if path.name in checked:
+            continue
+        a = read_article(path)
+        if a and a.get("title") and not a.get("image"):
+            todo.append((path, a))
+    if not todo:
+        save_json(PHOTO_CHECKED_FILE, sorted(checked))
+        return
+    updates = []
+    log(f"Looking for photos for {min(per_run, len(todo))} older story/stories…")
+    for path, a in todo[:per_run]:
+        log(f"  {a['title']}")
+        checked.add(path.name)
+        body = a.pop("body")
+        a.pop("file", None)
+        image = find_image(ai, a["title"], a.get("dek", ""), body, log=log)
+        size = image and save_photo(image["url"], PHOTOS_DIR / f"{path.stem}.jpg")
+        if image and size:
+            image.update(file=f"{path.stem}.jpg", width=size[0], height=size[1])
+            a["image"] = image
+            write_article(path, a, body)
+            updates.append({"file": path.name, "title": a["title"], "image": image})
+            log(f"    photo: {image['caption']} ({image['library']})")
+    save_json(PHOTO_CHECKED_FILE, sorted(checked))
+    save_json(PHOTO_UPDATES_FILE, updates)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--list", action="store_true", help="only list candidate headlines (no AI, nothing saved)")
@@ -378,6 +416,7 @@ def main() -> None:
     seen.setdefault("urls", {})
     seen.setdefault("recent_headlines", [])
     save_json(NEW_ARTICLES_FILE, [])
+    save_json(PHOTO_UPDATES_FILE, [])
 
     log("Reading news feeds…")
     candidates = fetch_candidates(cfg, seen)
@@ -389,6 +428,7 @@ def main() -> None:
     if not candidates:
         prune_seen(seen)
         save_json(SEEN_FILE, seen)
+        backfill_photos(cfg, AI(cfg))
         return
 
     ai = AI(cfg)
@@ -480,6 +520,7 @@ def main() -> None:
     prune_seen(seen)
     save_json(SEEN_FILE, seen)
     save_json(NEW_ARTICLES_FILE, written)
+    backfill_photos(cfg, ai, [w["file"] for w in written])
     log(f"Done: {len(written)} new article(s).")
 
 

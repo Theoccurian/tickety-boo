@@ -16,6 +16,8 @@ PHOTOS_DIR = ROOT / "content" / "photos"
 DATA_DIR = ROOT / "data"
 SEEN_FILE = DATA_DIR / "seen.json"
 NEW_ARTICLES_FILE = DATA_DIR / "new_articles.json"
+PHOTO_UPDATES_FILE = DATA_DIR / "photo_updates.json"
+PHOTO_CHECKED_FILE = DATA_DIR / "photo_checked.json"
 
 
 def load_config() -> dict:
