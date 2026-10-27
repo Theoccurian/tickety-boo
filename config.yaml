@@ -104,7 +104,7 @@ newsletter:
   subscribe_url: ""
   frequency: "every Friday"
   # Build the weekly newsletter from the week's stories every Friday morning.
-  weekly_digest: false
+  weekly_digest: true
   # false = saved as a draft in Kit for you to check and send. true = sent automatically.
   auto_send: false
   intro: "Here are some of the good things that happened around the world this week."
