@@ -155,7 +155,10 @@ def save_and_push(message: str) -> None:
         return
     subprocess.run(["git", "config", "user.name", "good-news-bot"], check=True)
     subprocess.run(["git", "config", "user.email", "41898282+github-actions[bot]@users.noreply.github.com"], check=True)
-    subprocess.run(["git", "add", str(POSTED_FILE), str(TOKEN_FILE)], check=True)
+    files = [str(f) for f in (POSTED_FILE, TOKEN_FILE) if f.exists()]
+    if not files:
+        return
+    subprocess.run(["git", "add", *files], check=True)
     if subprocess.run(["git", "diff", "--cached", "--quiet"]).returncode == 0:
         return
     subprocess.run(["git", "commit", "-m", message], check=True)
