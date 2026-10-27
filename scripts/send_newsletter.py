@@ -15,6 +15,8 @@ import datetime as dt
 import html
 import os
 import sys
+import tempfile
+import subprocess
 
 import requests
 
@@ -104,6 +106,23 @@ def build_email(cfg: dict, stories: list[dict]) -> tuple[str, str, str]:
     return subject, preview, body
 
 
+def email_it_instead(subject: str, preview: str, body: str, reason: str) -> None:
+    """If Kit won't take the draft (e.g. the free plan doesn't allow it), post the finished newsletter
+    as a GitHub issue. GitHub emails it to you; copy it from there into a new Kit broadcast."""
+    note = (f"**Couldn't put this week's newsletter into Kit automatically** ({reason}), so here it is to paste in yourself.\n\n"
+            "1. In Kit, go to **Broadcasts → New broadcast**.\n"
+            f"2. Subject: **{subject}**  \n   Preview text: *{preview}*\n"
+            "3. Select everything below the line, copy it, and paste it into the email.\n"
+            "4. Check it over, choose **All subscribers**, and send. Then close this issue.\n\n---\n\n")
+    with tempfile.NamedTemporaryFile("w", suffix=".md", delete=False, encoding="utf-8") as f:
+        f.write(note + body)
+    r = subprocess.run(["gh", "issue", "create", "--title", f"Newsletter ready to send: {subject}", "--body-file", f.name],
+                       capture_output=True, text=True)
+    if r.returncode != 0:
+        sys.exit(f"Couldn't create the newsletter in Kit ({reason}) or on GitHub ({r.stderr.strip()[:300]}).")
+    print(f"Kit didn't accept it ({reason}), so the newsletter was posted as a GitHub issue: {r.stdout.strip()}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--preview", action="store_true")
@@ -126,16 +145,22 @@ def main() -> None:
         return
     key = os.environ.get("KIT_API_KEY", "").strip()
     if not key:
-        sys.exit("KIT_API_KEY secret is missing. See SETUP.md.")
+        email_it_instead(subject, preview, body, "no KIT_API_KEY secret")
+        return
 
     send_at = None
     if nl.get("auto_send"):
         send_at = (NOW + dt.timedelta(minutes=15)).replace(microsecond=0).isoformat().replace("+00:00", "Z")
     payload = {"subject": subject, "preview_text": preview, "content": body, "description": f"Weekly digest {NOW.date()}",
                "public": bool(nl.get("public_archive", False)), "send_at": send_at}
-    r = requests.post(KIT_API, json=payload, headers={"X-Kit-Api-Key": key, "Accept": "application/json"}, timeout=60)
+    try:
+        r = requests.post(KIT_API, json=payload, headers={"X-Kit-Api-Key": key, "Accept": "application/json"}, timeout=60)
+    except requests.RequestException as e:
+        email_it_instead(subject, preview, body, f"couldn't reach Kit: {str(e)[:120]}")
+        return
     if r.status_code >= 300:
-        sys.exit(f"Kit said ({r.status_code}): {r.text[:400]}")
+        email_it_instead(subject, preview, body, f"Kit said {r.status_code}: {r.text[:200]}")
+        return
     print("Newsletter " + ("scheduled to send in 15 minutes." if send_at else "saved as a draft in Kit. Open Kit to read it and press send."))
 
 
