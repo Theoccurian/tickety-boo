@@ -1,0 +1,46 @@
+name: Post to Instagram
+
+on:
+  schedule:
+    - cron: "37 * * * *" # checks every hour; the script decides whether it's time to post
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "What to do"
+        type: choice
+        options: [normal, "test connection only", "post next story now"]
+        default: normal
+
+permissions:
+  contents: write
+
+concurrency:
+  group: instagram
+  cancel-in-progress: false
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install requests pyyaml cryptography
+
+      - name: Post the next story
+        env:
+          INSTAGRAM_ACCESS_TOKEN: ${{ secrets.INSTAGRAM_ACCESS_TOKEN }}
+          INSTAGRAM_TOKEN_KEY: ${{ secrets.INSTAGRAM_TOKEN_KEY }}
+          MODE: ${{ inputs.mode }}
+        run: |
+          if [ "$MODE" = "test connection only" ]; then python scripts/post_instagram.py --check
+          elif [ "$MODE" = "post next story now" ]; then python scripts/post_instagram.py --now
+          else python scripts/post_instagram.py; fi
