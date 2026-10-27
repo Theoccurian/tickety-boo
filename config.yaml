@@ -76,7 +76,7 @@ images:
 
 instagram:
   # Switch to true once you've connected Instagram (see SETUP.md, part 2).
-  enabled: false
+  enabled: true
   # Added to the end of every caption.
   brand_hashtags: ["#TicketyBooNews", "#GoodNews"]
   # Only post between these hours, UK time (24-hour clock).
