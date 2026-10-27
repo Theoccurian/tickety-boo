@@ -1,0 +1,28 @@
+name: Weekly newsletter
+
+on:
+  schedule:
+    - cron: "13 7 * * 5" # Fridays, about 7am UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  newsletter:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: pip install requests pyyaml
+      - name: Create this week's newsletter in Kit
+        env:
+          KIT_API_KEY: ${{ secrets.KIT_API_KEY }}
+          GH_TOKEN: ${{ github.token }}
+        run: python scripts/send_newsletter.py
