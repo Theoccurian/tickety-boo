@@ -2,7 +2,11 @@ name: Post to Instagram
 
 on:
   schedule:
-    - cron: "37 * * * *" # checks every hour; the script decides whether it's time to post
+    - cron: "7,37 * * * *" # checks twice an hour; the script decides whether it's time to post
+  # Also check straight after every website update, so new stories go out promptly.
+  workflow_run:
+    workflows: ["Publish website"]
+    types: [completed]
   workflow_dispatch:
     inputs:
       mode:
@@ -21,7 +25,7 @@ concurrency:
 jobs:
   post:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
         with:
