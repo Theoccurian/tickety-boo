@@ -98,7 +98,7 @@ support:
 newsletter:
   # The sign-up form: in Kit, open your form, choose "Embed" then "HTML", and copy the address
   # after action=" (it looks like https://app.kit.com/forms/1234567/subscriptions).
-  form_action: form_action: "https://app.kit.com/forms/10103321/subscriptions"
+  form_action: "https://app.kit.com/forms/10103321/subscriptions"
   email_field: "email_address"
   # Or, instead of a form on the site, a link to a separate sign-up page.
   subscribe_url: ""
