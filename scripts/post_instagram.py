@@ -116,8 +116,8 @@ def caption_for(a: dict, cfg: dict) -> str:
     return cap[:2150]
 
 
-def wait_until_ready(token: str, container: str) -> None:
-    for _ in range(30):
+def wait_until_ready(token: str, container: str, tries: int = 30) -> None:
+    for _ in range(tries):
         status = api("GET", container, fields="status_code", access_token=token).get("status_code")
         if status == "FINISHED":
             return
@@ -141,6 +141,80 @@ def publish(token: str, user_id: str, image_urls: list[str], caption: str) -> st
                         caption=caption, access_token=token)["id"]
     wait_until_ready(token, container)
     return api("POST", f"{user_id}/media_publish", creation_id=container, access_token=token)["id"]
+
+
+def publish_reel(token: str, user_id: str, video_url: str, caption: str, ig: dict) -> str:
+    """A short vertical video. Reels are what Instagram shows to people who don't follow you yet."""
+    params = dict(media_type="REELS", video_url=video_url, caption=caption,
+                  share_to_feed="true" if ig.get("reels_in_grid", False) else "false", access_token=token)
+    if ig.get("trial_reels", False):
+        # Trial reels go to non-followers first (needs 200+ followers). Shared to followers if they do well.
+        params["trial_params"] = '{"graduation_strategy":"SS_PERFORMANCE"}'
+    try:
+        container = api("POST", f"{user_id}/media", **params)["id"]
+    except InstagramError as e:
+        if "trial_params" not in params:
+            raise
+        log(f"Trial reel not available ({e}); posting it as a normal Reel.")
+        params.pop("trial_params")
+        container = api("POST", f"{user_id}/media", **params)["id"]
+    wait_until_ready(token, container, tries=50)
+    return api("POST", f"{user_id}/media_publish", creation_id=container, access_token=token)["id"]
+
+
+def post_pending_reel(token: str, user_id: str, cfg: dict, posted: dict, only: str | None = None) -> bool:
+    """Posts the Reel for a story whose carousel is already up. Returns True if one was posted."""
+    ig = cfg["instagram"]
+    if not ig.get("reels", True):
+        return False
+    base = cfg["site"]["base_url"].rstrip("/")
+    by_slug = {}
+    for path in ARTICLES_DIR.glob("*.md"):
+        a = read_article(path)
+        if a and a.get("title"):
+            by_slug[a.get("slug") or path.stem[11:]] = a
+    for slug, rec in sorted(posted["posts"].items(), key=lambda kv: kv[1]["posted_at"]):
+        if only and slug != only:
+            continue
+        if rec.get("reel_id") or rec.get("reel_attempts", 0) >= 3 or slug not in by_slug:
+            continue
+        if NOW - dt.datetime.fromisoformat(rec["posted_at"]) > dt.timedelta(days=float(ig.get("max_story_age_days", 3)) + 1):
+            continue
+        video = f"{base}/social/{slug}-reel.mp4"
+        if not online(video):
+            log(f"Reel for '{by_slug[slug]['title']}' isn't online yet.")
+            continue
+        log(f"Posting Reel: {by_slug[slug]['title']}")
+        rec["reel_attempts"] = rec.get("reel_attempts", 0) + 1
+        try:
+            rec["reel_id"] = publish_reel(token, user_id, video, caption_for(by_slug[slug], cfg), ig)
+            log("Reel posted.")
+        except InstagramError as e:
+            log(f"Reel didn't post this time ({e}); will try again later.")
+        save_json(POSTED_FILE, posted)
+        save_and_push(f"Instagram Reel: {by_slug[slug]['title']}")
+        return bool(rec.get("reel_id"))
+    return False
+
+
+def post_story(token: str, user_id: str, cfg: dict, posted: dict, slug: str, title: str) -> None:
+    """Puts the story's headline card on our Instagram Story (one try; Stories only last a day anyway)."""
+    rec = posted["posts"].get(slug)
+    if not cfg["instagram"].get("stories", True) or not rec or rec.get("story_id") or rec.get("story_tried"):
+        return
+    image = f"{cfg['site']['base_url'].rstrip('/')}/social/{slug}-story.jpg"
+    if not online(image):
+        return
+    rec["story_tried"] = True
+    try:
+        container = api("POST", f"{user_id}/media", media_type="STORIES", image_url=image, access_token=token)["id"]
+        wait_until_ready(token, container)
+        rec["story_id"] = api("POST", f"{user_id}/media_publish", creation_id=container, access_token=token)["id"]
+        log("Added to our Instagram Story.")
+    except InstagramError as e:
+        log(f"Couldn't add it to the Story ({e}).")
+    save_json(POSTED_FILE, posted)
+    save_and_push(f"Instagram Story: {title}")
 
 
 def online(url: str) -> bool:
@@ -192,6 +266,14 @@ def main() -> None:
         last = posted.get("last_post_at")
         gap = dt.timedelta(hours=float(ig.get("min_hours_between_posts", 3)))
         if last and NOW - dt.datetime.fromisoformat(last) < gap:
+            pending = [k for k, v in posted["posts"].items() if not v.get("reel_id") and v.get("reel_attempts", 0) < 3]
+            if pending and ig.get("reels", True):
+                token, token_changed = get_token()
+                if token_changed:
+                    save_and_push("Renew Instagram access token")
+                me = api("GET", "me", fields="user_id,username", access_token=token)
+                if post_pending_reel(token, me.get("user_id") or me.get("id"), cfg, posted):
+                    return
             log("Posted recently; waiting before the next one.")
             return
 
@@ -209,7 +291,8 @@ def main() -> None:
         queue.append((published, slug, a))
     queue.sort(key=lambda x: x[0])
 
-    if not queue and not args.check:
+    pending_reels = [k for k, v in posted["posts"].items() if not v.get("reel_id") and v.get("reel_attempts", 0) < 3]
+    if not queue and not args.check and not (pending_reels and ig.get("reels", True)):
         log("No new stories waiting for Instagram.")
         return
 
@@ -220,6 +303,11 @@ def main() -> None:
     user_id = me.get("user_id") or me.get("id")
     log(f"Connected to Instagram as @{me.get('username')}.")
     if args.check:
+        return
+
+    if not queue:
+        if not post_pending_reel(token, user_id, cfg, posted):
+            log("No new stories waiting for Instagram.")
         return
 
     base = cfg["site"]["base_url"].rstrip("/")
@@ -245,6 +333,10 @@ def main() -> None:
         save_json(POSTED_FILE, posted)
         save_and_push(f"Posted to Instagram: {a['title']}")
         log("Posted.")
+        # Also on our Story, for followers who tap through Stories rather than the feed.
+        post_story(token, user_id, cfg, posted, slug, a["title"])
+        # The same story as a Reel, so people who don't follow us yet can find it.
+        post_pending_reel(token, user_id, cfg, posted, only=slug)
         return
 
 

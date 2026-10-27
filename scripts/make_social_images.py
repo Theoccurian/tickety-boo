@@ -52,6 +52,13 @@ def main() -> None:
 
     print(f"Social images: {len(todo)} drawn, {len(manifest) - len(todo)} reused.")
 
+    # Short vertical videos for Instagram Reels, made from the same slides.
+    try:
+        import make_reels
+        make_reels.main()
+    except Exception as e:  # noqa: BLE001 - a video problem must never stop the website publishing
+        print(f"Reels skipped this time: {e}")
+
 
 if __name__ == "__main__":
     main()

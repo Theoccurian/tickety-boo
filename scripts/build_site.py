@@ -309,7 +309,8 @@ def main() -> None:
                 brief_size=52 if points_len <= 70 else 46 if points_len <= 100 else 40,
                 why_size=44 if len(a["why"]) <= 280 else 40 if len(a["why"]) <= 420 else 35 if len(a["why"]) <= 560 else 31,
             ), encoding="utf-8")
-            manifest.append({"html": str(html_path), "out": out, "w": w, "h": ht, "cache_key": f"{a['slug']}-{variant}-{h}.jpg"})
+            manifest.append({"html": str(html_path), "out": out, "w": w, "h": ht, "cache_key": f"{a['slug']}-{variant}-{h}.jpg",
+                             "slug": a["slug"], "variant": variant, "colour": a["cat"]["colour"], "section": a["cat"]["name"]})
     (CARDS / "manifest.json").write_text(json.dumps(manifest, indent=1))
 
     render("about.html", "/about/", schema=seo.about_schema(S))

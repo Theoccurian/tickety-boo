@@ -8,3 +8,5 @@ markdown>=3.5
 cryptography>=42
 playwright>=1.45
 pillow>=10.0
+numpy>=1.26
+imageio-ffmpeg>=0.5
