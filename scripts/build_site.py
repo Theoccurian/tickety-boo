@@ -313,6 +313,21 @@ def main() -> None:
                              "slug": a["slug"], "variant": variant, "colour": a["cat"]["colour"], "section": a["cat"]["name"]})
     (CARDS / "manifest.json").write_text(json.dumps(manifest, indent=1))
 
+    # What scripts/make_reels.py needs to make each story's Reel and Instagram Story image
+    reels = []
+    for a in articles:
+        p = a.get("photo")
+        beats = [k for k in a["key_points"][:2]] or [a["dek"]]
+        reels.append({
+            "slug": a["slug"], "colour": a["cat"]["colour"], "section": a["cat"]["name"], "location": a.get("location", ""),
+            "hook": str(a.get("reel_hook") or a["title"]), "beats": beats,
+            "photo": card_photo(a) or "",
+            "credit": (("Illustrative photo: " if p.get("kind") == "generic" else "Photo: ") + str(p["credit"])
+                       + (f" / {p['library']}" if p.get("library") and p["library"] != p["credit"] else "")) if p and card_photo(a) else "",
+            "cover": str(cover_svg(a["cat"]["colour"], a["cat"]["icon"], a["seed"], 1080, 1200)),
+        })
+    (CARDS / "reels.json").write_text(json.dumps(reels, indent=1))
+
     render("about.html", "/about/", schema=seo.about_schema(S))
     render("privacy.html", "/privacy/")
     if partners:

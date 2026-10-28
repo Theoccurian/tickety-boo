@@ -250,7 +250,8 @@ Strict rules:
 8. Location: the country or region where it happened (e.g. "Kenya", "Scotland, UK"), or "Global".
 9. Do not mention the source outlet in the body; the site credits it separately.
 10. Key points: exactly 3 short, self-contained factual statements (each under 20 words) summarising who, what, where and the outcome, so a reader or search engine can understand the story at a glance. Same facts rules apply.
-11. Instagram caption: 2-4 short, friendly sentences in your own words telling the story (same facts rules apply), with the same light English touch (one phrase at most), at most one fitting emoji, then a blank line, then "Full story: link in bio", then a blank line, then 3-5 relevant hashtags plus {hashtags}.
+11. Instagram caption: start with one short line naming the key subject and place in plain, searchable words, the way someone would search for it (e.g. "Irrawaddy dolphins, Mekong River, Cambodia"). Then 2-4 short, friendly sentences in your own words telling the story (same facts rules apply), with the same light English touch (one phrase at most), at most one fitting emoji, then a blank line, then "Full story: link in bio", then a blank line, then 3-5 specific, relevant hashtags plus {hashtags}.
+12. Video hook (reel_hook): the big opening line of a short vertical video, 4-9 words, that makes someone stop scrolling. Plain, vivid and true to the facts: lead with the most surprising or heartening fact (e.g. "Six baby dolphins just beat the odds", "A wrong turn saved a family from a fire"). No questions, no "you won't believe", no exaggeration, at most one emoji at the end.
 
 Set usable=false (and leave the other fields brief) if the source text is too thin to write 250 accurate words, is not actually good news, is promotional/opinion, or describes something that hasn't happened yet."""
 
@@ -275,9 +276,10 @@ def article_schema(cats: list[str], guide: str = "") -> dict:
             "tags": {"type": "array", "items": {"type": "string"}, "maxItems": 5},
             "body_markdown": {"type": "string"},
             "instagram_caption": {"type": "string"},
+            "reel_hook": {"type": "string", "description": "Rule 12: the big opening line of the short video"},
             "key_points": {"type": "array", "items": {"type": "string"}, "minItems": 3, "maxItems": 3},
         },
-        "required": ["usable", "headline", "dek", "category", "location", "tags", "body_markdown", "instagram_caption", "key_points"],
+        "required": ["usable", "headline", "dek", "category", "location", "tags", "body_markdown", "instagram_caption", "key_points", "reel_hook"],
     }
 
 
@@ -330,7 +332,8 @@ def write_one(ai: AI, cfg: dict, cand: dict, source_text: str) -> dict | None:
 
     for attempt in range(2):
         points = "\n".join(f"- {p}" for p in draft.get("key_points", []))
-        full = f"{draft['headline']}\n{draft['dek']}\nKEY POINTS:\n{points}\n\n{draft['body_markdown']}\n\nINSTAGRAM CAPTION:\n{draft.get('instagram_caption', '')}"
+        full = (f"{draft['headline']}\n{draft['dek']}\nKEY POINTS:\n{points}\n\n{draft['body_markdown']}\n\n"
+                f"INSTAGRAM CAPTION:\n{draft.get('instagram_caption', '')}\n\nVIDEO HOOK LINE:\n{draft.get('reel_hook', '')}")
         problems = []
         copied = copied_passages(full, source_text)
         if copied:
@@ -500,6 +503,7 @@ def main() -> None:
             "cover_seed": random.randint(1, 10**6),
             "key_points": [p.strip() for p in art.get("key_points", []) if p.strip()][:3],
             "instagram_caption": art.get("instagram_caption", "").strip(),
+            "reel_hook": art.get("reel_hook", "").strip(),
         }
         if cfg.get("images", {}).get("enabled", True):
             log("    looking for a photo")

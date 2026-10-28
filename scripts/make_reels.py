@@ -1,19 +1,20 @@
 """
-Turns each story's three Instagram slides into a short vertical video (a Reel):
-  public/social/<story>-reel.mp4   1080×1920, about 14 seconds, with a gentle original music bed
-  public/social/<story>-story.jpg  1080×1920 still of the headline, for Instagram Stories
+Makes each story's Reel (short vertical video) and Instagram Story image:
+  public/social/<story>-reel.mp4   1080×1920, about 11 seconds, with a gentle original music bed
+  public/social/<story>-story.jpg  1080×1920 still of the opening frame, for Instagram Stories
 
-Instagram shows Reels to people who don't follow you far more than ordinary posts,
-so this is how a new account gets discovered.
+Built to stop people scrolling: a full-width photo (or the story's sunrise illustration) that slowly
+moves, a big hook line in the first second, then two short facts, then "Full story: link in bio".
+Instagram shows Reels to people who don't follow you, so this is how a new account gets found.
 
 Finished videos are kept in .social-cache/ so each one is only made once.
-Run after make_social_images.py (it calls this automatically).
+make_social_images.py runs this automatically.
 """
 from __future__ import annotations
 
 import hashlib
+import html
 import json
-import math
 import shutil
 import subprocess
 import wave
@@ -30,34 +31,56 @@ OUT = ROOT / "public" / "social"
 FONTS = (ROOT / "static" / "fonts").as_uri()
 
 W, H, FPS = 1080, 1920, 30
-SLIDE_SECONDS = (3.5, 4.5, 6.5)  # headline, In brief, Why it matters (more to read on the last ones)
-FADE_SECONDS = 0.4
-DESIGN_VERSION = "reel-v2"  # change to redraw every Reel
+# (layer, starts at, ends at) in seconds. Layer 0 is the hook, then the two facts, then the ending.
+TIMELINE = [(0, 0.0, 3.0), (1, 3.0, 6.2), (2, 6.2, 9.4), (3, 9.4, 11.4)]
+SECONDS = TIMELINE[-1][2]
+FADE_IN, FADE_OUT, RISE = 0.35, 0.2, 34
+DESIGN_VERSION = "reel-v3"  # change to redraw every Reel
 
-FRAME_HTML = """<!doctype html><html><head><meta charset="utf-8"><style>
+PAGE = """<!doctype html><html><head><meta charset="utf-8"><style>
 @font-face {{ font-family: "Bricolage Grotesque"; font-weight: 200 800; src: url("{fonts}/bricolage-grotesque.woff2") format("woff2"); }}
 * {{ box-sizing: border-box; margin: 0; }}
-html, body {{ width: 1080px; height: 1920px; overflow: hidden; }}
-body {{
-  font-family: "Bricolage Grotesque", sans-serif; color: #fff;
-  background: radial-gradient(120% 70% at 50% 18%, color-mix(in srgb, {colour} 70%, white) 0%, {colour} 55%, color-mix(in srgb, {colour} 75%, black) 100%);
-  display: flex; flex-direction: column; align-items: center;
-}}
-.top {{ margin-top: 190px; display: flex; align-items: center; gap: 18px; font-weight: 800; font-size: 50px; letter-spacing: -0.025em; }}
-.top svg {{ width: 76px; height: 76px; }}
-.sub {{ margin-top: 14px; font-size: 30px; font-weight: 520; opacity: .9; letter-spacing: .01em; }}
-.slide {{ margin-top: 52px; width: 920px; height: 1150px; border-radius: 34px; overflow: hidden;
-  box-shadow: 0 30px 60px -20px rgba(0,0,0,.45), 0 0 0 1px rgba(255,255,255,.12); }}
-.slide img {{ display: block; width: 100%; height: 100%; }}
-.cta {{ margin-top: 48px; background: #F2AE1C; color: #132036; font-weight: 750; font-size: 34px; padding: 18px 34px; border-radius: 999px; }}
-</style></head><body>
-<div class="top"><svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="30" r="11" fill="#FFD266"/>
-<g stroke="#FFD266" stroke-width="3.2" stroke-linecap="round"><path d="M24 6v6M8.4 14.4l4.2 4.2M39.6 14.4l-4.2 4.2M3 30h5M40 30h5"/></g>
-<path d="M2 42h44" stroke="#fff" stroke-width="3.2" stroke-linecap="round"/></svg>{name}</div>
-<p class="sub">{sub}</p>
-<div class="slide"><img src="{slide}"></div>
-<p class="cta">{cta}</p>
-</body></html>"""
+html, body {{ width: 1080px; height: 1920px; overflow: hidden; background: transparent; }}
+body {{ font-family: "Bricolage Grotesque", sans-serif; color: #fff; -webkit-font-smoothing: antialiased; }}
+{css}
+</style></head><body>{body}</body></html>"""
+
+BG_CSS = """
+body {{ background: color-mix(in srgb, {colour} 38%, #0B1220); }}
+.art {{ position: absolute; inset: 0 0 auto 0; height: 1240px; overflow: hidden; }}
+.art img, .art svg {{ display: block; width: 100%; height: 100%; object-fit: cover; }}
+.fade {{ position: absolute; inset: 0 0 auto 0; height: 1240px;
+  background: linear-gradient(to bottom, rgba(0,0,0,.28) 0%, rgba(0,0,0,0) 18%, rgba(0,0,0,0) 48%, color-mix(in srgb, {colour} 38%, #0B1220) 100%); }}
+.credit {{ position: absolute; left: 60px; top: 150px; font-size: 22px; font-weight: 500; opacity: .85; text-shadow: 0 1px 4px rgba(0,0,0,.6); max-width: 760px; }}
+"""
+
+TEXT_CSS = """
+.block {{ position: absolute; left: 72px; width: 850px; bottom: 420px; display: flex; flex-direction: column; gap: 26px; }}
+.kicker {{ align-self: flex-start; display: inline-flex; align-items: center; gap: 12px; padding: 12px 22px 12px 16px; border-radius: 999px;
+  background: rgba(11,18,32,.55); font-size: 28px; font-weight: 700; letter-spacing: .02em; text-transform: uppercase; }}
+.kicker svg {{ width: 38px; height: 38px; }}
+.kicker b {{ color: #FFD266; font-weight: 800; }}
+.hook {{ font-weight: 800; line-height: 1.02; letter-spacing: -0.035em; text-wrap: balance; text-shadow: 0 3px 18px rgba(0,0,0,.35); }}
+.hook::after {{ content: ""; display: block; width: 150px; height: 12px; margin-top: 26px; border-radius: 6px; background: #F2AE1C; }}
+.fact {{ font-weight: 700; line-height: 1.16; letter-spacing: -0.02em; text-wrap: pretty; text-shadow: 0 2px 12px rgba(0,0,0,.35); }}
+.where {{ font-size: 30px; font-weight: 600; opacity: .85; }}
+.end-cta {{ align-self: flex-start; background: #F2AE1C; color: #132036; font-weight: 800; font-size: 60px; padding: 22px 40px; border-radius: 999px; letter-spacing: -0.02em; }}
+.end-sub {{ font-size: 40px; font-weight: 650; }}
+"""
+
+SUN = ('<svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="30" r="11" fill="#FFD266"/>'
+       '<g stroke="#FFD266" stroke-width="3.6" stroke-linecap="round"><path d="M24 6v6M8.4 14.4l4.2 4.2M39.6 14.4l-4.2 4.2M3 30h5M40 30h5"/></g>'
+       '<path d="M2 42h44" stroke="#fff" stroke-width="3.6" stroke-linecap="round"/></svg>')
+
+
+def hook_size(text: str) -> int:
+    n = len(text)
+    return 112 if n <= 32 else 100 if n <= 45 else 88 if n <= 62 else 76
+
+
+def fact_size(text: str) -> int:
+    n = len(text)
+    return 70 if n <= 70 else 62 if n <= 100 else 54
 
 
 # ─── Music: a soft, original chord progression (no copyright worries) ────────
@@ -102,6 +125,70 @@ def make_music(path: Path, seconds: float, rate: int = 44100) -> None:
         w.writeframes(pcm.tobytes())
 
 
+# ─── Drawing the layers ──────────────────────────────────────────────────────
+
+def render_layers(page, r: dict, site_name: str, tmp: Path) -> tuple[Image.Image, list[Image.Image]]:
+    """Background (photo or illustration) plus one transparent text layer per moment in the video."""
+    def shot(css: str, body: str, transparent: bool) -> Image.Image:
+        f = tmp / "layer.html"
+        f.write_text(PAGE.format(fonts=FONTS, css=css, body=body), encoding="utf-8")
+        page.goto(f.as_uri())
+        page.wait_for_function("Array.from(document.images).every(i => i.complete && i.naturalWidth > 0)", timeout=15000)
+        page.evaluate("document.fonts.ready")
+        page.wait_for_timeout(120)
+        png = tmp / "layer.png"
+        page.screenshot(path=str(png), omit_background=transparent)
+        img = Image.open(png).convert("RGBA")
+        img.load()
+        return img
+
+    art = f'<img src="{r["photo"]}" alt="">' if r["photo"] else r["cover"]
+    credit = f'<p class="credit">{html.escape(r["credit"])}</p>' if r.get("credit") else ""
+    bg = shot(BG_CSS.format(colour=r["colour"]), f'<div class="art">{art}</div><div class="fade"></div>{credit}', False).convert("RGB")
+
+    kicker = f'<p class="kicker">{SUN}<span><b>Good news</b> &nbsp;·&nbsp; {html.escape(r["section"])}</span></p>'
+    where = f'<p class="where">{html.escape(r["location"])}</p>' if r.get("location") else ""
+    hook = html.escape(r["hook"])
+    beats = [html.escape(b) for b in (r["beats"] + r["beats"])[:2]]
+    bodies = [
+        f'<div class="block">{kicker}<p class="hook" style="font-size:{hook_size(r["hook"])}px">{hook}</p>{where}</div>',
+        f'<div class="block">{kicker}<p class="fact" style="font-size:{fact_size(r["beats"][0])}px">{beats[0]}</p></div>',
+        f'<div class="block">{kicker}<p class="fact" style="font-size:{fact_size(beats[1])}px">{beats[1]}</p></div>',
+        f'<div class="block">{kicker}<p class="end-cta">Full story: link in bio</p><p class="end-sub">{html.escape(site_name)}</p></div>',
+    ]
+    layers = [shot(TEXT_CSS.replace("{{", "{").replace("}}", "}"), b, True) for b in bodies]
+    return bg, layers
+
+
+def frame_at(bg: Image.Image, layers: list[Image.Image], t: float) -> Image.Image:
+    z = 1 + 0.06 * (t / SECONDS)  # slow push-in on the photo for the whole video
+    cw, ch = int(W / z), int(H / z)
+    x, y = (W - cw) // 2, int((H - ch) * 0.35)
+    frame = bg.crop((x, y, x + cw, y + ch)).resize((W, H), Image.BICUBIC).convert("RGBA")
+    for idx, start, end in TIMELINE:
+        if not (start - 0.01 <= t < end + 0.01):
+            continue
+        a, dy = 1.0, 0
+        if idx > 0 and t < start + FADE_IN:  # the first line is on screen from frame one
+            p = (t - start) / FADE_IN
+            a, dy = p, int(RISE * (1 - p) ** 2)
+        if idx < len(TIMELINE) - 1 and t > end - FADE_OUT:
+            a = min(a, (end - t) / FADE_OUT)
+        a = max(0.0, min(1.0, a))
+        if a <= 0:
+            continue
+        layer = layers[idx]
+        if a < 1:
+            layer = layer.copy()
+            layer.putalpha(layer.getchannel("A").point(lambda v, a=a: int(v * a)))
+        if dy:
+            shifted = Image.new("RGBA", (W, H))
+            shifted.paste(layer, (0, dy))
+            layer = shifted
+        frame.alpha_composite(layer)
+    return frame.convert("RGB")
+
+
 # ─── Video ───────────────────────────────────────────────────────────────────
 
 def ffmpeg_exe() -> str:
@@ -112,35 +199,12 @@ def ffmpeg_exe() -> str:
     return imageio_ffmpeg.get_ffmpeg_exe()
 
 
-def frames(stills: list[Image.Image]):
-    fade = int(FADE_SECONDS * FPS)
-
-    def zoomed(i: int, k: int) -> np.ndarray:
-        per = int(SLIDE_SECONDS[i] * FPS)
-        # slow push-in from 100% to 103% across each slide's time on screen
-        z = 1 + 0.03 * (k / (per + fade))
-        img = stills[i]
-        cw, ch = int(W / z), int(H / z)
-        x, y = (W - cw) // 2, (H - ch) // 2
-        return np.asarray(img.crop((x, y, x + cw, y + ch)).resize((W, H), Image.BICUBIC), dtype=np.float32)
-
-    for i in range(len(stills)):
-        per = int(SLIDE_SECONDS[i] * FPS)
-        for k in range(per):
-            frame = zoomed(i, k)
-            if i + 1 < len(stills) and k >= per - fade:
-                a = (k - (per - fade) + 1) / (fade + 1)
-                frame = frame * (1 - a) + zoomed(i + 1, k - (per - fade)) * a
-            yield frame.astype(np.uint8).tobytes()
-
-
-def make_reel(stills: list[Image.Image], out: Path, music: bool) -> None:
-    seconds = sum(SLIDE_SECONDS[:len(stills)])
+def make_reel(bg: Image.Image, layers: list[Image.Image], out: Path, music: bool) -> None:
     tmp_audio = out.with_suffix(".wav")
     cmd = [ffmpeg_exe(), "-y", "-loglevel", "error",
            "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{H}", "-r", str(FPS), "-i", "-"]
     if music:
-        make_music(tmp_audio, seconds)
+        make_music(tmp_audio, SECONDS)
         cmd += ["-i", str(tmp_audio)]
     else:
         cmd += ["-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=44100"]
@@ -149,8 +213,8 @@ def make_reel(stills: list[Image.Image], out: Path, music: bool) -> None:
             "-c:a", "aac", "-b:a", "128k", "-ar", "44100", "-movflags", "+faststart", str(out)]
     proc = subprocess.Popen(cmd, stdin=subprocess.PIPE)
     try:
-        for f in frames(stills):
-            proc.stdin.write(f)
+        for n in range(int(SECONDS * FPS)):
+            proc.stdin.write(frame_at(bg, layers, n / FPS).tobytes())
     finally:
         proc.stdin.close()
         proc.wait()
@@ -161,68 +225,52 @@ def make_reel(stills: list[Image.Image], out: Path, music: bool) -> None:
 
 def main() -> None:
     cfg = load_config()
-    ig = cfg.get("instagram") or {}
-    if not ig.get("reels", True):
+    if not (cfg.get("instagram") or {}).get("reels", True):
         return
-    manifest_file = CARDS / "manifest.json"
-    if not manifest_file.exists():
+    data_file = CARDS / "reels.json"
+    if not data_file.exists():
         return
-    manifest = json.loads(manifest_file.read_text())
-    stories: dict[str, dict] = {}
-    for m in manifest:
-        if m.get("variant") in ("ig", "brief", "why") and m.get("slug"):
-            s = stories.setdefault(m["slug"], {"colour": m.get("colour", "#2B62C4"), "section": m.get("section", ""), "slides": {}})
-            s["slides"][m["variant"]] = m
-    music = bool(ig.get("reels_music", True))
+    stories = json.loads(data_file.read_text())
+    music = bool(cfg["instagram"].get("reels_music", True))
     site_name = cfg["site"]["name"]
+    CACHE.mkdir(exist_ok=True)
+    OUT.mkdir(parents=True, exist_ok=True)
+    tmp = CACHE / "reel-tmp"
+    tmp.mkdir(exist_ok=True)
     made = reused = 0
-    keep = set()
-
-    browser = None
+    keep: set[str] = set()
+    pw = browser = page = None
     try:
-        for slug, s in stories.items():
-            slides = [s["slides"][v] for v in ("ig", "brief", "why") if v in s["slides"]]
-            if len(slides) < 2:
-                continue
-            key = hashlib.md5("|".join([DESIGN_VERSION, str(music), s["colour"]] + [m["cache_key"] for m in slides]).encode()).hexdigest()[:10]
-            cached = CACHE / f"{slug}-reel-{key}.mp4"
-            story = CACHE / f"{slug}-story-{key}.jpg"
-            keep.update({cached.name, story.name})
-            if not (cached.exists() and story.exists()):
-                if browser is None:
+        for r in stories:
+            photo_bytes = b""
+            if r["photo"].startswith("file://"):
+                try:
+                    photo_bytes = Path(r["photo"][7:]).read_bytes()
+                except OSError:
+                    r["photo"] = ""
+            key = hashlib.md5((DESIGN_VERSION + str(music) + json.dumps(r, sort_keys=True)).encode() + photo_bytes).hexdigest()[:10]
+            video = CACHE / f"{r['slug']}-reel-{key}.mp4"
+            story = CACHE / f"{r['slug']}-story-{key}.jpg"
+            keep.update({video.name, story.name})
+            if not (video.exists() and story.exists()):
+                if page is None:
                     from playwright.sync_api import sync_playwright
                     pw = sync_playwright().start()
                     browser = pw.chromium.launch()
-                page = browser.new_page(viewport={"width": W, "height": H})
-                stills = []
-                for n, m in enumerate(slides):
-                    html_file = CACHE / f"{slug}-reelframe-{n}.html"
-                    html_file.write_text(FRAME_HTML.format(
-                        fonts=FONTS, colour=s["colour"], name=site_name,
-                        sub=f"Good news &nbsp;·&nbsp; {s['section']}" if s["section"] else "Good news from around the world",
-                        slide=(CACHE / m["cache_key"]).as_uri(), cta="Full story: link in bio"), encoding="utf-8")
-                    page.goto(html_file.as_uri())
-                    page.wait_for_function("document.images[0].complete && document.images[0].naturalWidth > 0", timeout=10000)
-                    page.evaluate("document.fonts.ready")
-                    page.wait_for_timeout(150)
-                    tmp = CACHE / f"{slug}-reelframe-{n}.png"
-                    page.screenshot(path=str(tmp))
-                    stills.append(Image.open(tmp).convert("RGB"))
-                    tmp.unlink()
-                    html_file.unlink()
-                page.close()
-                stills[0].save(story, "JPEG", quality=90)  # the same headline frame, for Instagram Stories
-                make_reel(stills, cached, music)
+                    page = browser.new_page(viewport={"width": W, "height": H})
+                bg, layers = render_layers(page, r, site_name, tmp)
+                frame_at(bg, layers, 1.0).save(story, "JPEG", quality=90)
+                make_reel(bg, layers, video, music)
                 made += 1
             else:
                 reused += 1
-            shutil.copyfile(cached, OUT / f"{slug}-reel.mp4")
-            shutil.copyfile(story, OUT / f"{slug}-story.jpg")
+            shutil.copyfile(video, OUT / f"{r['slug']}-reel.mp4")
+            shutil.copyfile(story, OUT / f"{r['slug']}-story.jpg")
     finally:
         if browser is not None:
             browser.close()
             pw.stop()
-
+        shutil.rmtree(tmp, ignore_errors=True)
     for f in list(CACHE.glob("*-reel-*.mp4")) + list(CACHE.glob("*-story-*.jpg")):
         if f.name not in keep:
             f.unlink()
