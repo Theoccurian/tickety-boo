@@ -1,0 +1,244 @@
+# ─────────────────────────────────────────────────────────────
+#  SITE SETTINGS — this is the only file you should need to edit.
+#  Lines starting with # are notes and are ignored.
+# ─────────────────────────────────────────────────────────────
+
+site:
+  name: "Tickety-Boo News"
+  short_name: "TBN"
+  tagline: "Real stories of things going right, from around the world."
+  # The homepage headline changes every Monday, working through this list.
+  # {phrase} is swapped for one of the phrases below. Add, remove or reorder as you like.
+  rotating_tagline: "Real stories of things {phrase}, from around the world."
+  tagline_phrases:
+    - "ticking along nicely"
+    - "going swimmingly"
+    - "coming up roses"
+    - "looking up"
+    - "going like a dream"
+    - "going famously"
+    - "coming good"
+    - "on the up"
+    - "going like clockwork"
+    - "turning out rather splendidly"
+    - "shaping up nicely"
+    - "going jolly well"
+  description: "A daily round-up of positive, true news stories from around the world, each one linked to its original source."
+  language: "en-GB"
+  # Your site's web address, e.g. "https://ticketyboonews.co.uk" (no slash at the end).
+  base_url: "https://ticketyboonews.co.uk"
+  # An email address readers can use to report mistakes. Shown on the About page.
+  # Search engines (especially Google News) trust sites more when there's a way to get in touch.
+  contact_email: "hello@ticketyboonews.co.uk"
+  # Your Instagram page, e.g. "https://www.instagram.com/ticketyboonews". Linked from the site.
+  instagram_url: "https://www.instagram.com/ticketyboonews"
+
+seo:
+  # true  = AI companies may also use the site's stories to train their AI models.
+  # false = blocks AI *training* crawlers. AI *search* tools (ChatGPT search, Perplexity,
+  #         Claude, Copilot, Google AI Overviews) can still find and cite you either way.
+  allow_ai_training: true
+  # Tells Bing (which powers Copilot) and others about new stories the moment they're published.
+  indexnow: true
+  indexnow_key: "9db169fadca80a28767d5cc8087e911d"
+
+publishing:
+  # How many new stories to write each time the robot runs (it runs 3 times a day).
+  articles_per_run: 3
+  # Stories are rated 1–10 for how genuinely uplifting and newsworthy they are.
+  # Only stories at or above this score are written up.
+  min_score: 6
+  # Only consider stories published in the last this-many hours.
+  max_age_hours: 48
+  # false = every story waits for you to approve it in GitHub (recommended).
+  # true  = stories go live automatically with no approval.
+  auto_publish: false
+  # Unapproved stories are thrown away after this many days so they don't pile up.
+  discard_unreviewed_after_days: 5
+  # Stories shown on each page of the homepage.
+  stories_per_page: 13
+
+ai:
+  # Cheaper, faster model used to sift through headlines.
+  scoring_model: "claude-haiku-5-5"
+  # Better writer, used for the articles themselves and the fact-check.
+  writing_model: "claude-sonnet-5-5"
+
+images:
+  # true = the robot looks for a real photo for each story. Specific subjects (a named species,
+  # place or landmark) only get an exact match from Wikimedia Commons, labelled "file photo".
+  # Everyday subjects get a stock photo from Pixabay, labelled "Illustrative photo".
+  # An AI checks every photo first; if none is right, the story keeps its sunrise illustration.
+  enabled: true
+  # Older stories without a photo get one looked for, this many per run (0 = off).
+  # Each photo found is sent to you for approval, just like a new story.
+  backfill_per_run: 2
+
+instagram:
+  # Switch to true once you've connected Instagram (see SETUP.md, part 2).
+  enabled: true
+  # Added to the end of every caption.
+  brand_hashtags: ["#TicketyBooNews", "#GoodNews"]
+  # Only post between these hours, UK time (24-hour clock).
+  posting_hours: [8, 21]
+  # Leave at least this many hours between posts.
+  min_hours_between_posts: 3
+  # Stories older than this are never posted to Instagram.
+  max_story_age_days: 3
+  # true = swipeable 3-slide posts (headline, In brief, Why it matters). false = single image.
+  carousel: true
+  # true = each story is also posted as a short Reel (video), which Instagram shows to
+  # people who don't follow you yet. This is how a new account gets found.
+  reels: true
+  # true = Reels also appear in your profile grid. false = they only appear in the Reels tab.
+  reels_in_grid: false
+  # A soft, original music bed on each Reel (no copyright issues). false = silent.
+  reels_music: true
+  # Trial reels are shown to non-followers first. Instagram only allows them once you
+  # have 200+ followers; switch this to true then.
+  trial_reels: false
+  # true = each new post is also added to your Instagram Story.
+  stories: true
+
+# ─── Making money (all optional; each part stays hidden until filled in) ──────
+
+support:
+  # Your donation page, e.g. a Ko-fi or Buy Me a Coffee link.
+  donate_url: "https://ko-fi.com/ticketyboonews"
+  button: "Support TBN"
+
+newsletter:
+  # The sign-up form: in Kit, open your form, choose "Embed" then "HTML", and copy the address
+  # after action=" (it looks like https://app.kit.com/forms/1234567/subscriptions).
+  form_action: "https://app.kit.com/forms/10103321/subscriptions"
+  email_field: "email_address"
+  # Or, instead of a form on the site, a link to a separate sign-up page.
+  subscribe_url: ""
+  frequency: "every Friday"
+  # Build the weekly newsletter from the week's stories every Friday morning.
+  weekly_digest: true
+  # false = saved as a draft in Kit for you to check and send. true = sent automatically.
+  auto_send: false
+  intro: "Here are some of the good things that happened around the world this week."
+
+analytics:
+  # Privacy-friendly visitor counts (no cookie banner needed). Fill in ONE of these.
+  cloudflare_token: ""   # Cloudflare Web Analytics (free)
+  plausible_domain: ""   # Plausible (paid), e.g. "ticketyboonews.co.uk"
+
+partners_page:
+  title: "Offers for TBN readers"
+  intro: "Discounts from sustainable brands we've chosen to work with. These are paid partnerships."
+  # true = codes appear only in the newsletter; the site tells people to subscribe to get them.
+  codes_for_subscribers_only: true
+
+# Each partner offer appears on the Offers page, clearly labelled as an ad. Example:
+#  - name: "Example Refills"
+#    offer: "15% off your first order"
+#    description: "Plastic-free cleaning refills delivered by post."
+#    url: "https://example.com/?ref=tbn"
+#    code: "TBN15"
+partners: []
+
+# The sections of the site. You can rename these, change colours, or add new ones.
+# "icon" must be one of: health, environment, science, people, kindness, animals, technology, history
+# "guide" (optional) tells the robot what belongs in each section.
+categories:
+  - slug: health
+    name: Health
+    colour: "#D9483B"
+    icon: health
+    description: "Medical breakthroughs, better care and healthier lives."
+  - slug: environment
+    name: Environment
+    colour: "#23855A"
+    icon: environment
+    description: "Nature recovering, cleaner energy and a healthier planet."
+  - slug: science
+    name: Science
+    colour: "#5B4BD1"
+    icon: science
+    description: "Discoveries that expand what we know."
+    guide: "new research and discoveries: physics, space, biology, chemistry, climate science. Not archaeology or history."
+  - slug: people
+    name: People
+    colour: "#C2620F"
+    icon: people
+    description: "Remarkable people and communities doing remarkable things."
+  - slug: kindness
+    name: Kindness
+    colour: "#C93F86"
+    icon: kindness
+    description: "Generosity, compassion and strangers helping strangers."
+  - slug: animals
+    name: Animals
+    colour: "#13817F"
+    icon: animals
+    description: "Wildlife comebacks, rescues and conservation wins."
+  - slug: technology
+    name: Technology
+    colour: "#2B62C4"
+    icon: technology
+    description: "Inventions and ideas making life better."
+  - slug: history
+    name: History
+    colour: "#8B5E34"
+    icon: history
+    description: "Heritage saved, the past uncovered and old places given new life."
+    guide: "archaeology, historic finds, heritage buildings restored, museums, lost artefacts returned, anniversaries and local history projects."
+
+# Where stories come from. Any news site with an RSS feed can be added.
+feeds:
+  - name: Positive News
+    url: "https://www.positive.news/feed/"
+  - name: Good News Network
+    url: "https://www.goodnewsnetwork.org/feed/"
+  - name: Reasons to be Cheerful
+    url: "https://reasonstobecheerful.world/feed/"
+  - name: The Optimist Daily
+    url: "https://www.optimistdaily.com/feed/"
+  - name: Good Good Good
+    url: "https://www.goodgoodgood.co/articles/rss.xml"
+  - name: Happy Eco News
+    url: "https://happyeconews.com/feed"
+  - name: BBC News (Science & Environment)
+    url: "https://feeds.bbci.co.uk/news/science_and_environment/rss.xml"
+  - name: BBC News (Health)
+    url: "https://feeds.bbci.co.uk/news/health/rss.xml"
+  - name: ScienceDaily
+    url: "https://www.sciencedaily.com/rss/top/science.xml"
+  - name: Mongabay
+    url: "https://news.mongabay.com/feed/"
+  # ── Added Oct 2026: more UK stories ──
+  - name: BBC News (England)
+    url: "https://feeds.bbci.co.uk/news/england/rss.xml"
+  - name: BBC News (Scotland)
+    url: "https://feeds.bbci.co.uk/news/scotland/rss.xml"
+  - name: BBC News (Wales)
+    url: "https://feeds.bbci.co.uk/news/wales/rss.xml"
+  - name: The Guardian (Environment)
+    url: "https://www.theguardian.com/environment/rss"
+  - name: The Guardian (Science)
+    url: "https://www.theguardian.com/science/rss"
+  - name: The Big Issue
+    url: "https://www.bigissue.com/feed/"
+  - name: Carbon Brief
+    url: "https://www.carbonbrief.org/feed/"
+  # ── Added Oct 2026: science, health and technology breakthroughs ──
+  - name: BBC News (Technology)
+    url: "https://feeds.bbci.co.uk/news/technology/rss.xml"
+  - name: Phys.org
+    url: "https://phys.org/rss-feed/"
+  - name: Medical Xpress
+    url: "https://medicalxpress.com/rss-feed/"
+  - name: ScienceAlert
+    url: "https://www.sciencealert.com/feed"
+  - name: Smithsonian (Smart News)
+    url: "https://www.smithsonianmag.com/rss/smart-news/"
+  - name: NASA
+    url: "https://www.nasa.gov/news-release/feed/"
+  # ── Added Oct 2026: clean energy and people ──
+  - name: CleanTechnica
+    url: "https://cleantechnica.com/feed/"
+  - name: YES! Magazine
+    url: "https://www.yesmagazine.org/feed"
