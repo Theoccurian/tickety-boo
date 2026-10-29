@@ -2,7 +2,7 @@
 title: Indigenous voices closer to permanent place in global nature talks
 dek: Delegates at the UN biodiversity conference in Armenia are settling how a new body will work, giving Indigenous peoples and local communities a lasting role in decisions.
 date: '2026-10-28T18:24:01+00:00'
-category: environment
+category: people
 location: Armenia
 tags:
 - Indigenous peoples
