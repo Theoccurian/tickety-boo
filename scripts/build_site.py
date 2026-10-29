@@ -97,10 +97,17 @@ def photo_html(a: dict, small: bool = False, eager: bool = False) -> Markup:
     return Markup(f'<img class="photo" src="{src}" alt="{alt}" width="{p["width"]}" height="{p["height"]}" {load} decoding="async">')
 
 
+ALLOW_SHARE_ALIKE = False  # set from config.yaml (instagram: share_alike_photos)
+
+
 def card_photo(a: dict) -> str:
-    """Photo for the Instagram/link-preview cards, only if its licence lets us crop it."""
+    """Photo for the Instagram/link-preview cards: only if its licence lets us crop it, or it's
+    share-alike and share_alike_photos is on (the post then carries the same licence)."""
     p = a.get("photo")
-    return p["file_uri"] if p and p.get("ig_ok") else ""
+    if not p:
+        return ""
+    sa = "sa" in str(p.get("licence", "")).lower().replace("-", " ").split()
+    return p["file_uri"] if (p.get("ig_ok") or (sa and ALLOW_SHARE_ALIKE)) else ""
 
 
 # ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -210,6 +217,8 @@ def main() -> None:
     cats = {c["slug"]: c for c in cfg["categories"]}
     per_page = int(cfg["publishing"].get("stories_per_page", 13))
 
+    global ALLOW_SHARE_ALIKE
+    ALLOW_SHARE_ALIKE = bool((cfg.get("instagram") or {}).get("share_alike_photos", False))
     articles = load_articles(cats)
     now = dt.datetime.now(dt.timezone.utc)
     this_week = sum(1 for a in articles if now - a["date"] < dt.timedelta(days=7))
@@ -321,6 +330,8 @@ def main() -> None:
         reels.append({
             "slug": a["slug"], "colour": a["cat"]["colour"], "section": a["cat"]["name"], "location": a.get("location", ""),
             "hook": str(a.get("reel_hook") or a["title"]), "beats": beats,
+            # Reels only for stories with a real photo we're allowed to use on Instagram
+            "video": bool(card_photo(a)) or not (cfg.get("instagram") or {}).get("reels_need_photo", True),
             "photo": card_photo(a) or "",
             "credit": (("Illustrative photo: " if p.get("kind") == "generic" else "Photo: ") + str(p["credit"])
                        + (f" / {p['library']}" if p.get("library") and p["library"] != p["credit"] else "")) if p and card_photo(a) else "",

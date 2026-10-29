@@ -252,7 +252,8 @@ def main() -> None:
             video = CACHE / f"{r['slug']}-reel-{key}.mp4"
             story = CACHE / f"{r['slug']}-story-{key}.jpg"
             keep.update({video.name, story.name})
-            if not (video.exists() and story.exists()):
+            want_video = r.get("video", True)
+            if not (story.exists() and (video.exists() or not want_video)):
                 if page is None:
                     from playwright.sync_api import sync_playwright
                     pw = sync_playwright().start()
@@ -260,11 +261,13 @@ def main() -> None:
                     page = browser.new_page(viewport={"width": W, "height": H})
                 bg, layers = render_layers(page, r, site_name, tmp)
                 frame_at(bg, layers, 1.0).save(story, "JPEG", quality=90)
-                make_reel(bg, layers, video, music)
+                if want_video:
+                    make_reel(bg, layers, video, music)
                 made += 1
             else:
                 reused += 1
-            shutil.copyfile(video, OUT / f"{r['slug']}-reel.mp4")
+            if want_video:
+                shutil.copyfile(video, OUT / f"{r['slug']}-reel.mp4")
             shutil.copyfile(story, OUT / f"{r['slug']}-story.jpg")
     finally:
         if browser is not None:

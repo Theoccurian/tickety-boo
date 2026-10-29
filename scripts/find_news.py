@@ -30,7 +30,7 @@ import requests
 import trafilatura
 
 from common import (
-    ARTICLES_DIR, NEW_ARTICLES_FILE, PHOTO_CHECKED_FILE, PHOTO_UPDATES_FILE, PHOTOS_DIR, SEEN_FILE,
+    ARTICLES_DIR, FEED_STATUS_FILE, NEW_ARTICLES_FILE, PHOTO_CHECKED_FILE, PHOTO_UPDATES_FILE, PHOTOS_DIR, SEEN_FILE,
     read_article,
     load_config, load_json, save_json, slugify, write_article,
 )
@@ -75,13 +75,17 @@ def similar_to_any(title: str, others: list[str], threshold: float = 0.72) -> bo
 def fetch_candidates(cfg: dict, seen: dict) -> list[dict]:
     max_age = dt.timedelta(hours=cfg["publishing"].get("max_age_hours", 48))
     candidates: list[dict] = []
+    status = {}
     for feed in cfg.get("feeds", []):
         try:
             resp = requests.get(feed["url"], headers={"User-Agent": USER_AGENT}, timeout=20)
             resp.raise_for_status()
             parsed = feedparser.parse(resp.content)
+            if not parsed.entries:
+                raise ValueError("no stories in the feed (wrong address?)")
         except Exception as e:  # noqa: BLE001 — one bad feed shouldn't stop the run
             log(f"  ! Couldn't read feed '{feed['name']}': {e}")
+            status[feed["name"]] = {"ok": False, "error": str(e)[:200], "checked": NOW.replace(microsecond=0).isoformat()}
             continue
         count = 0
         for entry in parsed.entries[:40]:
@@ -109,6 +113,10 @@ def fetch_candidates(cfg: dict, seen: dict) -> list[dict]:
             })
             count += 1
         log(f"  {feed['name']}: {count} new headline(s)")
+        status[feed["name"]] = {"ok": True, "stories_in_feed": len(parsed.entries), "new": count,
+                                "checked": NOW.replace(microsecond=0).isoformat()}
+    # A record of which feeds are working, saved with the robot's other notes.
+    save_json(FEED_STATUS_FILE, status)
     return candidates
 
 

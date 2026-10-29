@@ -108,11 +108,31 @@ def get_token() -> tuple[str, bool]:
 
 # ─── Posting ─────────────────────────────────────────────────────────────────
 
+def _is_share_alike(img: dict) -> bool:
+    return "sa" in str(img.get("licence", "")).lower().replace("-", " ").split()
+
+
+def photo_on_instagram(a: dict, cfg: dict) -> dict | None:
+    """The story's photo, if we're allowed to use it in Instagram posts (same rule as the site builder)."""
+    img = a.get("image") if isinstance(a.get("image"), dict) else None
+    if not img or not img.get("file"):
+        return None
+    if img.get("instagram_ok") or (_is_share_alike(img) and cfg["instagram"].get("share_alike_photos", False)):
+        return img
+    return None
+
+
 def caption_for(a: dict, cfg: dict) -> str:
     cap = (a.get("instagram_caption") or "").strip()
     if not cap:
         tags = " ".join(cfg["instagram"].get("brand_hashtags", []))
         cap = f"{a['title']}\n\n{a.get('dek', '')}\n\nFull story: link in bio\n\n{tags}"
+    img = photo_on_instagram(a, cfg)
+    if img and img.get("library") == "Wikimedia Commons":
+        credit = f"📷 Photo: {img.get('credit', 'Unknown')} / Wikimedia Commons, {img.get('licence', '')}"
+        if _is_share_alike(img):
+            credit += f". This post is shared under {img.get('licence')}"
+        cap = f"{cap}\n\n{credit}."
     return cap[:2150]
 
 
@@ -176,7 +196,12 @@ def post_pending_reel(token: str, user_id: str, cfg: dict, posted: dict, only: s
     for slug, rec in sorted(posted["posts"].items(), key=lambda kv: kv[1]["posted_at"]):
         if only and slug != only:
             continue
-        if rec.get("reel_id") or rec.get("reel_attempts", 0) >= 3 or slug not in by_slug:
+        if rec.get("reel_id") or rec.get("reel_skipped") or rec.get("reel_attempts", 0) >= 3 or slug not in by_slug:
+            continue
+        if ig.get("reels_need_photo", True) and not photo_on_instagram(by_slug[slug], cfg):
+            rec["reel_skipped"] = "no photo"  # no Reel without a real picture
+            save_json(POSTED_FILE, posted)
+            save_and_push(f"No Reel for '{by_slug[slug]['title'][:60]}' (no usable photo)")
             continue
         if NOW - dt.datetime.fromisoformat(rec["posted_at"]) > dt.timedelta(days=float(ig.get("max_story_age_days", 3)) + 1):
             continue
@@ -266,7 +291,7 @@ def main() -> None:
         last = posted.get("last_post_at")
         gap = dt.timedelta(hours=float(ig.get("min_hours_between_posts", 3)))
         if last and NOW - dt.datetime.fromisoformat(last) < gap:
-            pending = [k for k, v in posted["posts"].items() if not v.get("reel_id") and v.get("reel_attempts", 0) < 3]
+            pending = [k for k, v in posted["posts"].items() if not v.get("reel_id") and not v.get("reel_skipped") and v.get("reel_attempts", 0) < 3]
             if pending and ig.get("reels", True):
                 token, token_changed = get_token()
                 if token_changed:
@@ -291,7 +316,7 @@ def main() -> None:
         queue.append((published, slug, a))
     queue.sort(key=lambda x: x[0])
 
-    pending_reels = [k for k, v in posted["posts"].items() if not v.get("reel_id") and v.get("reel_attempts", 0) < 3]
+    pending_reels = [k for k, v in posted["posts"].items() if not v.get("reel_id") and not v.get("reel_skipped") and v.get("reel_attempts", 0) < 3]
     if not queue and not args.check and not (pending_reels and ig.get("reels", True)):
         log("No new stories waiting for Instagram.")
         return

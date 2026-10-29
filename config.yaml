@@ -94,6 +94,11 @@ instagram:
   reels_in_grid: false
   # A soft, original music bed on each Reel (no copyright issues). false = silent.
   reels_music: true
+  # true = only post a Reel when the story has a real photo (no Reels with the illustration).
+  reels_need_photo: true
+  # Many Wikimedia wildlife photos are "share-alike" (CC BY-SA). true = use them on Instagram too,
+  # with a caption line saying the post is shared under the same licence. false = website only.
+  share_alike_photos: true
   # Trial reels are shown to non-followers first. Instagram only allows them once you
   # have 200+ followers; switch this to true then.
   trial_reels: false
@@ -209,3 +214,36 @@ feeds:
     url: "https://www.sciencedaily.com/rss/top/science.xml"
   - name: Mongabay
     url: "https://news.mongabay.com/feed/"
+  # ── Added Oct 2026: more UK stories ──
+  - name: BBC News (England)
+    url: "https://feeds.bbci.co.uk/news/england/rss.xml"
+  - name: BBC News (Scotland)
+    url: "https://feeds.bbci.co.uk/news/scotland/rss.xml"
+  - name: BBC News (Wales)
+    url: "https://feeds.bbci.co.uk/news/wales/rss.xml"
+  - name: The Guardian (Environment)
+    url: "https://www.theguardian.com/environment/rss"
+  - name: The Guardian (Science)
+    url: "https://www.theguardian.com/science/rss"
+  - name: The Big Issue
+    url: "https://www.bigissue.com/feed/"
+  - name: Carbon Brief
+    url: "https://www.carbonbrief.org/feed/"
+  # ── Added Oct 2026: science, health and technology breakthroughs ──
+  - name: BBC News (Technology)
+    url: "https://feeds.bbci.co.uk/news/technology/rss.xml"
+  - name: Phys.org
+    url: "https://phys.org/rss-feed/"
+  - name: Medical Xpress
+    url: "https://medicalxpress.com/rss-feed/"
+  - name: ScienceAlert
+    url: "https://www.sciencealert.com/feed"
+  - name: Smithsonian (Smart News)
+    url: "https://www.smithsonianmag.com/rss/smart-news/"
+  - name: NASA
+    url: "https://www.nasa.gov/news-release/feed/"
+  # ── Added Oct 2026: clean energy and people ──
+  - name: CleanTechnica
+    url: "https://cleantechnica.com/feed/"
+  - name: YES! Magazine
+    url: "https://www.yesmagazine.org/feed"

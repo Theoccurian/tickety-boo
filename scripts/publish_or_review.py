@@ -40,6 +40,11 @@ def push_main() -> None:
     raise SystemExit("Couldn't push to main.")
 
 
+def existing(*paths: str) -> list[str]:
+    from common import ROOT
+    return [p for p in paths if (ROOT / p).exists()]
+
+
 def has_changes(*paths: str) -> bool:
     return bool(run("git", "status", "--porcelain", "--", *paths).strip())
 
@@ -131,15 +136,15 @@ def main() -> None:
     run("git", "config", "user.email", "41898282+github-actions[bot]@users.noreply.github.com")
 
     if pub.get("auto_publish"):
-        if has_changes("content", "data/seen.json", "data/photo_checked.json"):
-            run("git", "add", "content", "data/seen.json", "data/photo_checked.json")
+        if has_changes("content", "data/seen.json", "data/photo_checked.json", "data/feed_status.json"):
+            run("git", "add", *existing("content", "data/seen.json", "data/photo_checked.json", "data/feed_status.json"))
             run("git", "commit", "-m", f"Publish {len(new)} new article(s)")
             push_main()
         return
 
     # 1. Save the "already seen" list to the main branch so stories aren't picked twice.
-    if has_changes("data/seen.json", "data/photo_checked.json"):
-        run("git", "add", "data/seen.json", "data/photo_checked.json")
+    if has_changes("data/seen.json", "data/photo_checked.json", "data/feed_status.json"):
+        run("git", "add", *existing("data/seen.json", "data/photo_checked.json", "data/feed_status.json"))
         run("git", "commit", "-m", "Update list of stories already considered")
         push_main()
 
