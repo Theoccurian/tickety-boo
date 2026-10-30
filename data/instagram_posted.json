@@ -121,7 +121,9 @@
     },
     "amino-acid-helps-last-resort-antibiotic-beat-resistant-bacteria-in": {
       "media_id": "18155175670532039",
-      "posted_at": "2026-10-30T20:37:21+00:00"
+      "posted_at": "2026-10-30T20:37:21+00:00",
+      "story_tried": true,
+      "story_id": "18099785639656063"
     }
   }
 }
