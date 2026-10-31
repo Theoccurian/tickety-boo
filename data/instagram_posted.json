@@ -129,7 +129,9 @@
     },
     "fda-approves-first-drug-to-target-alexander-disease-directly": {
       "media_id": "18370243471211763",
-      "posted_at": "2026-10-31T08:07:19+00:00"
+      "posted_at": "2026-10-31T08:07:19+00:00",
+      "story_tried": true,
+      "story_id": "17977090548171129"
     }
   }
 }
