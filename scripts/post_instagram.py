@@ -242,6 +242,25 @@ def post_story(token: str, user_id: str, cfg: dict, posted: dict, slug: str, tit
     save_and_push(f"Instagram Story: {title}")
 
 
+def _caption_key(text: str) -> str:
+    return " ".join((text or "").split())[:120].lower()
+
+
+def already_on_instagram(token: str, user_id: str, caption: str) -> str | None:
+    """Looks at our latest Instagram posts and returns the id of one with this caption, if any.
+    This stops a story being posted twice even if our own notes didn't get saved last time."""
+    try:
+        recent = api("GET", f"{user_id}/media", fields="id,caption,timestamp", limit=25, access_token=token)
+    except InstagramError as e:
+        log(f"Couldn't check recent posts ({e}).")
+        return None
+    key = _caption_key(caption)
+    for m in recent.get("data", []):
+        if key and _caption_key(m.get("caption", "")) == key:
+            return m["id"]
+    return None
+
+
 def online(url: str) -> bool:
     try:
         return requests.head(url, timeout=20, allow_redirects=True).status_code == 200
@@ -261,11 +280,16 @@ def save_and_push(message: str) -> None:
     if subprocess.run(["git", "diff", "--cached", "--quiet"]).returncode == 0:
         return
     subprocess.run(["git", "commit", "-m", message], check=True)
-    for _ in range(3):
-        subprocess.run(["git", "pull", "--rebase", "origin", "main"], check=False)
-        if subprocess.run(["git", "push", "origin", "HEAD:main"]).returncode == 0:
+    for _ in range(4):
+        pull = subprocess.run(["git", "pull", "--rebase", "--autostash", "origin", "main"], capture_output=True, text=True)
+        if pull.returncode != 0:
+            log(f"git pull problem: {(pull.stderr or pull.stdout).strip()[:300]}")
+            subprocess.run(["git", "rebase", "--abort"], capture_output=True)
+        push = subprocess.run(["git", "push", "origin", "HEAD:main"], capture_output=True, text=True)
+        if push.returncode == 0:
             return
-        time.sleep(5)
+        log(f"git push problem: {(push.stderr or push.stdout).strip()[:300]}")
+        time.sleep(8)
     sys.exit("Couldn't save Instagram progress to GitHub.")
 
 
@@ -348,8 +372,21 @@ def main() -> None:
                 if not online(extra):
                     break
                 images.append(extra)
-        log(f"Posting: {a['title']} ({len(images)} image{'s' if len(images) > 1 else ''})")
-        media_id = publish(token, user_id, images, caption_for(a, cfg))
+        caption = caption_for(a, cfg)
+        media_id = already_on_instagram(token, user_id, caption)
+        if media_id:
+            log(f"'{a['title']}' is already on Instagram; recording it instead of posting again.")
+        else:
+            log(f"Posting: {a['title']} ({len(images)} image{'s' if len(images) > 1 else ''})")
+            try:
+                media_id = publish(token, user_id, images, caption)
+            except Exception as e:  # noqa: BLE001 - includes Instagram being slow to reply (timeouts)
+                time.sleep(20)
+                # Instagram sometimes reports an error even though the post went up. Check before giving up.
+                media_id = already_on_instagram(token, user_id, caption)
+                if not media_id:
+                    raise
+                log(f"Instagram reported a problem ({e}), but the post is up; carrying on.")
         posted["posts"][slug] = {"media_id": media_id, "posted_at": NOW.replace(microsecond=0).isoformat()}
         posted["last_post_at"] = NOW.replace(microsecond=0).isoformat()
         # Keep the record tidy: forget posts older than 90 days.
