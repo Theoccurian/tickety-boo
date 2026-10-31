@@ -146,7 +146,9 @@
     "first-golden-eagle-chick-takes-wing-from-southern-scotland-grouse-moor": {
       "media_id": "18118140175810987",
       "posted_at": "2026-10-31T17:07:17+00:00",
-      "story_tried": true
+      "story_tried": true,
+      "reel_attempts": 1,
+      "reel_id": "18137430928649352"
     }
   }
 }
