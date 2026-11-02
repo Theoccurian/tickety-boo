@@ -324,26 +324,35 @@ def main() -> None:
 
     # What scripts/make_reels.py needs to make each story's Reel and Instagram Story image
     reels = []
+    ig_cfg = cfg.get("instagram") or {}
     # Only recent stories can still go to Instagram, so only make videos for those (keeps updates quick).
-    reel_window = dt.timedelta(days=float((cfg.get("instagram") or {}).get("max_story_age_days", 3)) + 1)
+    reel_window = dt.timedelta(days=float(ig_cfg.get("max_story_age_days", 3)) + 1)
+    tiktok_window = dt.timedelta(days=float(ig_cfg.get("tiktok_days", 3)))
+    want_tiktok = bool(ig_cfg.get("tiktok_versions", True))
     ig_done = (json.loads((ROOT / "data" / "instagram_posted.json").read_text()).get("posts", {})
                if (ROOT / "data" / "instagram_posted.json").exists() else {})
     for a in articles:
         rec = ig_done.get(a["slug"], {})
-        if now - a["date"] > reel_window or rec.get("reel_id") or rec.get("reel_skipped"):
-            continue  # too old for Instagram, or its Reel is already done
         p = a.get("photo")
+        has_video = bool(card_photo(a)) or not ig_cfg.get("reels_need_photo", True)
+        for_ig = now - a["date"] <= reel_window and not rec.get("reel_id") and not rec.get("reel_skipped")
+        for_tiktok = want_tiktok and has_video and now - a["date"] <= tiktok_window
+        if not (for_ig or for_tiktok):
+            continue  # too old, or its Reel is already done and it's past the TikTok window
         beats = [k for k in a["key_points"][:2]] or [a["dek"]]
         reels.append({
             "slug": a["slug"], "colour": a["cat"]["colour"], "section": a["cat"]["name"], "location": a.get("location", ""),
             "hook": str(a.get("reel_hook") or a["title"]), "beats": beats,
             # Reels only for stories with a real photo we're allowed to use on Instagram
-            "video": bool(card_photo(a)) or not (cfg.get("instagram") or {}).get("reels_need_photo", True),
+            "video": has_video, "ig": for_ig, "tiktok": for_tiktok,
             "photo": card_photo(a) or "",
             "credit": (("Illustrative photo: " if p.get("kind") == "generic" else "Photo: ") + str(p["credit"])
                        + (f" / {p['library']}" if p.get("library") and p["library"] != p["credit"] else "")) if p and card_photo(a) else "",
             "cover": str(cover_svg(a["cat"]["colour"], a["cat"]["icon"], a["seed"], 1080, 1200)),
         })
+    if want_tiktok:
+        tiktok = [a for a in articles if any(r["slug"] == a["slug"] and r["tiktok"] for r in reels)]
+        render("tiktok.html", "/tiktok/", items=tiktok, robots="noindex, nofollow")
     (CARDS / "reels.json").write_text(json.dumps(reels, indent=1))
 
     render("about.html", "/about/", schema=seo.about_schema(S))

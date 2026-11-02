@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}TikTok videos | {{ site.name }}{% endblock %}
+{% block description %}Silent video versions of recent stories.{% endblock %}
+{% block main %}
+<style>
+.tt { padding-block: 2rem 4rem; }
+.tt__intro { color: var(--muted); max-width: 40rem; margin-bottom: 1.6rem; font-family: var(--serif); }
+.tt__grid { display: grid; gap: 1.5rem; grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr)); }
+.tt__card { background: var(--surface); border: 1px solid var(--line); border-radius: 1rem; padding: .9rem; display: flex; flex-direction: column; gap: .7rem; }
+.tt__card video { width: 100%; aspect-ratio: 9 / 16; border-radius: .7rem; background: #000; object-fit: cover; }
+.tt__card h2 { font-size: 1.02rem; line-height: 1.3; }
+.tt__meta { font-size: .85rem; color: var(--muted); }
+.tt__btns { display: flex; gap: .5rem; flex-wrap: wrap; }
+.tt__btn { flex: 1; text-align: center; padding: .65rem .8rem; border-radius: 999px; font-weight: 700; font-size: .92rem; text-decoration: none; border: 0; cursor: pointer; font-family: inherit; }
+.tt__btn--dl { background: var(--sun); color: #132036; }
+.tt__btn--copy { background: var(--ink); color: var(--paper); }
+.tt__cap { width: 100%; min-height: 7rem; font: .85rem/1.45 var(--display); padding: .6rem; border-radius: .6rem; border: 1px solid var(--line); background: var(--paper); color: var(--ink); resize: vertical; }
+</style>
+<section class="wrap tt">
+  <h1 class="intro__line">TikTok videos</h1>
+  <p class="tt__intro">Silent versions of recent Reels, ready for a trending sound. Download one, open TikTok, upload it, then add a sound and paste the caption. This page isn't linked anywhere or shown to search engines.</p>
+  {% if items %}
+  <div class="tt__grid">
+    {% for a in items %}
+    <article class="tt__card">
+      <video src="{{ url('/social/' ~ a.slug ~ '-tiktok.mp4') }}" poster="{{ url('/social/' ~ a.slug ~ '-story.jpg') }}" controls playsinline muted preload="none"></video>
+      <h2>{{ a.title }}</h2>
+      <p class="tt__meta">{{ a.cat.name }} · {{ a.date_nice }}</p>
+      <textarea class="tt__cap" id="cap-{{ loop.index }}" readonly>{{ (a.instagram_caption or a.title) }}</textarea>
+      <div class="tt__btns">
+        <a class="tt__btn tt__btn--dl" href="{{ url('/social/' ~ a.slug ~ '-tiktok.mp4') }}" download="{{ a.slug }}-tiktok.mp4">Download video</a>
+        <button class="tt__btn tt__btn--copy" type="button" data-copy="cap-{{ loop.index }}">Copy caption</button>
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p>No videos right now. They appear here once stories with photos are published.</p>
+  {% endif %}
+</section>
+<script>
+document.querySelectorAll("[data-copy]").forEach(function (b) {
+  b.addEventListener("click", function () {
+    var t = document.getElementById(b.dataset.copy);
+    var done = function () { b.textContent = "Copied ✓"; setTimeout(function () { b.textContent = "Copy caption"; }, 1600); };
+    if (navigator.clipboard) { navigator.clipboard.writeText(t.value).then(done, function () { t.select(); document.execCommand("copy"); done(); }); }
+    else { t.select(); document.execCommand("copy"); done(); }
+  });
+});
+</script>
+{% endblock %}

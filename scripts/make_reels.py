@@ -35,7 +35,7 @@ W, H, FPS = 1080, 1920, 30
 TIMELINE = [(0, 0.0, 3.0), (1, 3.0, 6.2), (2, 6.2, 9.4), (3, 9.4, 11.4)]
 SECONDS = TIMELINE[-1][2]
 FADE_IN, FADE_OUT, RISE = 0.35, 0.2, 34
-DESIGN_VERSION = "reel-v3"  # change to redraw every Reel
+DESIGN_VERSION = "reel-v4"  # change to redraw every Reel
 
 PAGE = """<!doctype html><html><head><meta charset="utf-8"><style>
 @font-face {{ font-family: "Bricolage Grotesque"; font-weight: 200 800; src: url("{fonts}/bricolage-grotesque.woff2") format("woff2"); }}
@@ -127,24 +127,26 @@ def make_music(path: Path, seconds: float, rate: int = 44100) -> None:
 
 # ─── Drawing the layers ──────────────────────────────────────────────────────
 
-def render_layers(page, r: dict, site_name: str, tmp: Path) -> tuple[Image.Image, list[Image.Image]]:
-    """Background (photo or illustration) plus one transparent text layer per moment in the video."""
-    def shot(css: str, body: str, transparent: bool) -> Image.Image:
+def render_layers(page, r: dict, site_name: str, tmp: Path, page_hi=None, site_domain: str = "") -> tuple[Image.Image, list[Image.Image]]:
+    """Background (photo or illustration) plus one transparent text layer per moment in the video.
+    The background is drawn at double resolution so the slow zoom stays sharp and smooth."""
+    def shot(css: str, body: str, transparent: bool, pg=None) -> Image.Image:
+        pg = pg or page
         f = tmp / "layer.html"
         f.write_text(PAGE.format(fonts=FONTS, css=css, body=body), encoding="utf-8")
-        page.goto(f.as_uri())
-        page.wait_for_function("Array.from(document.images).every(i => i.complete && i.naturalWidth > 0)", timeout=15000)
-        page.evaluate("document.fonts.ready")
-        page.wait_for_timeout(120)
+        pg.goto(f.as_uri())
+        pg.wait_for_function("Array.from(document.images).every(i => i.complete && i.naturalWidth > 0)", timeout=15000)
+        pg.evaluate("document.fonts.ready")
+        pg.wait_for_timeout(120)
         png = tmp / "layer.png"
-        page.screenshot(path=str(png), omit_background=transparent)
+        pg.screenshot(path=str(png), omit_background=transparent)
         img = Image.open(png).convert("RGBA")
         img.load()
         return img
 
     art = f'<img src="{r["photo"]}" alt="">' if r["photo"] else r["cover"]
     credit = f'<p class="credit">{html.escape(r["credit"])}</p>' if r.get("credit") else ""
-    bg = shot(BG_CSS.format(colour=r["colour"]), f'<div class="art">{art}</div><div class="fade"></div>{credit}', False).convert("RGB")
+    bg = shot(BG_CSS.format(colour=r["colour"]), f'<div class="art">{art}</div><div class="fade"></div>{credit}', False, page_hi).convert("RGB")
 
     kicker = f'<p class="kicker">{SUN}<span><b>Good news</b> &nbsp;·&nbsp; {html.escape(r["section"])}</span></p>'
     where = f'<p class="where">{html.escape(r["location"])}</p>' if r.get("location") else ""
@@ -154,17 +156,21 @@ def render_layers(page, r: dict, site_name: str, tmp: Path) -> tuple[Image.Image
         f'<div class="block">{kicker}<p class="hook" style="font-size:{hook_size(r["hook"])}px">{hook}</p>{where}</div>',
         f'<div class="block">{kicker}<p class="fact" style="font-size:{fact_size(r["beats"][0])}px">{beats[0]}</p></div>',
         f'<div class="block">{kicker}<p class="fact" style="font-size:{fact_size(beats[1])}px">{beats[1]}</p></div>',
-        f'<div class="block">{kicker}<p class="end-cta">Full story: link in bio</p><p class="end-sub">{html.escape(site_name)}</p></div>',
+        f'<div class="block">{kicker}<p class="end-cta">Full story: link in bio</p><p class="end-sub">{html.escape(site_domain or site_name)}</p></div>',
     ]
     layers = [shot(TEXT_CSS.replace("{{", "{").replace("}}", "}"), b, True) for b in bodies]
     return bg, layers
 
 
 def frame_at(bg: Image.Image, layers: list[Image.Image], t: float) -> Image.Image:
-    z = 1 + 0.06 * (t / SECONDS)  # slow push-in on the photo for the whole video
-    cw, ch = int(W / z), int(H / z)
-    x, y = (W - cw) // 2, int((H - ch) * 0.35)
-    frame = bg.crop((x, y, x + cw, y + ch)).resize((W, H), Image.BICUBIC).convert("RGBA")
+    # Slow push-in on the picture for the whole video. Worked out in fractions of a pixel on the
+    # double-resolution background, so it glides rather than stepping.
+    p = t / SECONDS
+    z = 1 + 0.05 * (p * p * (3 - 2 * p))  # eases in and out
+    bw, bh = bg.size
+    cw, ch = bw / z, bh / z
+    x0, y0 = (bw - cw) / 2, (bh - ch) * 0.35
+    frame = bg.resize((W, H), Image.BICUBIC, box=(x0, y0, x0 + cw, y0 + ch)).convert("RGBA")
     for idx, start, end in TIMELINE:
         if not (start - 0.01 <= t < end + 0.01):
             continue
@@ -199,18 +205,13 @@ def ffmpeg_exe() -> str:
     return imageio_ffmpeg.get_ffmpeg_exe()
 
 
-def make_reel(bg: Image.Image, layers: list[Image.Image], out: Path, music: bool) -> None:
-    tmp_audio = out.with_suffix(".wav")
+def make_reel(bg: Image.Image, layers: list[Image.Image], silent_out: Path, ig_out: Path | None, music: bool) -> None:
+    """Writes the silent version (for TikTok, where you add a trending sound) and, if wanted,
+    the Instagram version with the music bed (same pictures, no second encode)."""
     cmd = [ffmpeg_exe(), "-y", "-loglevel", "error",
-           "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{H}", "-r", str(FPS), "-i", "-"]
-    if music:
-        make_music(tmp_audio, SECONDS)
-        cmd += ["-i", str(tmp_audio)]
-    else:
-        cmd += ["-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=44100"]
-    cmd += ["-map", "0:v", "-map", "1:a", "-shortest",
-            "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p", "-profile:v", "high",
-            "-c:a", "aac", "-b:a", "128k", "-ar", "44100", "-movflags", "+faststart", str(out)]
+           "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{H}", "-r", str(FPS), "-i", "-",
+           "-c:v", "libx264", "-preset", "slow", "-crf", "17", "-tune", "film", "-pix_fmt", "yuv420p",
+           "-profile:v", "high", "-an", "-movflags", "+faststart", str(silent_out)]
     proc = subprocess.Popen(cmd, stdin=subprocess.PIPE)
     try:
         for n in range(int(SECONDS * FPS)):
@@ -218,9 +219,22 @@ def make_reel(bg: Image.Image, layers: list[Image.Image], out: Path, music: bool
     finally:
         proc.stdin.close()
         proc.wait()
-        tmp_audio.unlink(missing_ok=True)
     if proc.returncode != 0:
         raise RuntimeError("ffmpeg couldn't make the video")
+    if ig_out is None:
+        return
+    audio = ig_out.with_suffix(".wav")
+    if music:
+        make_music(audio, SECONDS)
+        a_in = ["-i", str(audio)]
+    else:
+        a_in = ["-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=44100"]
+    res = subprocess.run([ffmpeg_exe(), "-y", "-loglevel", "error", "-i", str(silent_out), *a_in,
+                          "-map", "0:v", "-map", "1:a", "-shortest", "-c:v", "copy",
+                          "-c:a", "aac", "-b:a", "128k", "-ar", "44100", "-movflags", "+faststart", str(ig_out)])
+    audio.unlink(missing_ok=True)
+    if res.returncode != 0:
+        raise RuntimeError("ffmpeg couldn't add the music")
 
 
 def main() -> None:
@@ -233,13 +247,14 @@ def main() -> None:
     stories = json.loads(data_file.read_text())
     music = bool(cfg["instagram"].get("reels_music", True))
     site_name = cfg["site"]["name"]
+    site_domain = cfg["site"].get("base_url", "").split("//")[-1].strip("/")
     CACHE.mkdir(exist_ok=True)
     OUT.mkdir(parents=True, exist_ok=True)
     tmp = CACHE / "reel-tmp"
     tmp.mkdir(exist_ok=True)
     made = reused = 0
     keep: set[str] = set()
-    pw = browser = page = None
+    pw = browser = page = page_hi = None
     try:
         for r in stories:
             photo_bytes = b""
@@ -250,31 +265,35 @@ def main() -> None:
                     r["photo"] = ""
             key = hashlib.md5((DESIGN_VERSION + str(music) + json.dumps(r, sort_keys=True)).encode() + photo_bytes).hexdigest()[:10]
             video = CACHE / f"{r['slug']}-reel-{key}.mp4"
+            silent = CACHE / f"{r['slug']}-tiktok-{key}.mp4"
             story = CACHE / f"{r['slug']}-story-{key}.jpg"
-            keep.update({video.name, story.name})
+            keep.update({video.name, silent.name, story.name})
             want_video = r.get("video", True)
-            if not (story.exists() and (video.exists() or not want_video)):
+            if not (story.exists() and (not want_video or (silent.exists() and video.exists()))):
                 if page is None:
                     from playwright.sync_api import sync_playwright
                     pw = sync_playwright().start()
                     browser = pw.chromium.launch()
                     page = browser.new_page(viewport={"width": W, "height": H})
-                bg, layers = render_layers(page, r, site_name, tmp)
+                    page_hi = browser.new_page(viewport={"width": W, "height": H}, device_scale_factor=2)
+                bg, layers = render_layers(page, r, site_name, tmp, page_hi, site_domain)
                 frame_at(bg, layers, 1.0).save(story, "JPEG", quality=90)
                 if want_video:
-                    make_reel(bg, layers, video, music)
+                    make_reel(bg, layers, silent, video, music)
                 made += 1
             else:
                 reused += 1
-            if want_video:
+            if want_video and r.get("ig", True):
                 shutil.copyfile(video, OUT / f"{r['slug']}-reel.mp4")
+            if want_video and r.get("tiktok"):
+                shutil.copyfile(silent, OUT / f"{r['slug']}-tiktok.mp4")
             shutil.copyfile(story, OUT / f"{r['slug']}-story.jpg")
     finally:
         if browser is not None:
             browser.close()
             pw.stop()
         shutil.rmtree(tmp, ignore_errors=True)
-    for f in list(CACHE.glob("*-reel-*.mp4")) + list(CACHE.glob("*-story-*.jpg")):
+    for f in list(CACHE.glob("*-reel-*.mp4")) + list(CACHE.glob("*-tiktok-*.mp4")) + list(CACHE.glob("*-story-*.jpg")):
         if f.name not in keep:
             f.unlink()
     print(f"Reels: {made} made, {reused} reused.")

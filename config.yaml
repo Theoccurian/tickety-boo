@@ -104,6 +104,10 @@ instagram:
   trial_reels: false
   # true = each new post is also added to your Instagram Story.
   stories: true
+  # true = also make a silent copy of each Reel for TikTok (add a trending sound in the app).
+  # They're listed on a private page: ticketyboonews.co.uk/tiktok/ (bookmark it on your phone).
+  tiktok_versions: true
+  tiktok_days: 3
   # true = mention the organisations in each story (e.g. @wwtworldwide), but only when the robot finds
   # their official account on their own website and is sure it matches. Otherwise it mentions nobody.
   mention_accounts: true

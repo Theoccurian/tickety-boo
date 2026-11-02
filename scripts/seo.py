@@ -228,7 +228,8 @@ def write_sitemaps(out: Path, site: Site, articles: list[dict], cats: dict) -> N
 
 
 def write_robots(out: Path, site: Site) -> None:
-    lines = ["# Search engines and AI search tools are welcome to read and cite this site.", "User-agent: *", "Allow: /", ""]
+    lines = ["# Search engines and AI search tools are welcome to read and cite this site.", "User-agent: *", "Allow: /",
+             "Disallow: /tiktok/", ""]
     for bot in AI_SEARCH_BOTS:
         lines += [f"User-agent: {bot}", "Allow: /", ""]
     if not site.cfg.get("seo", {}).get("allow_ai_training", True):
