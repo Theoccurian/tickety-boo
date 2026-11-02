@@ -1,0 +1,42 @@
+name: Rewrite a story
+
+on:
+  workflow_dispatch:
+    inputs:
+      words:
+        description: "A few words from the story's headline"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: find-news
+  cancel-in-progress: false
+
+jobs:
+  rewrite:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: Rewrite the story and find a new picture
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
+          GH_TOKEN: ${{ github.token }}
+          WORDS: ${{ inputs.words }}
+        run: python scripts/rewrite_story.py "$WORDS"
