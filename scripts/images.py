@@ -41,7 +41,9 @@ Good: "solar panels", "Lismore Cathedral", "Isle of Lismore", "Irrawaddy dolphin
 Bad: "solar panels rural health clinic Africa", "lismore island scotland cathedral ruins".
 Broader options must still be honest for the story: for a dig on Lismore, the island or its cathedral is fine; a random Scottish castle is not. For a generic story, the plain everyday subject is fine (a solar clinic story can use "solar panels").
 
-Never ask for photos of identifiable private people. Prefer subjects over people where possible."""
+Never ask for photos of identifiable private people. Prefer subjects over people where possible.
+
+Animal welfare (strict): NEVER choose a photo of animals used in experiments or being treated badly: no lab mice, rats, rabbits or monkeys, no animals in cages, restrained, injected, injured, dissected, distressed or being tested on, even when the study used them. For research stories, show the subject instead: the compound's chemical structure or a molecule model (e.g. "psilocybin molecule"), the plant or substance (e.g. "psilocybe mushrooms"), the body part or condition in a neutral way, or lab equipment with no animals. Animals in the wild, in sanctuaries or being cared for and rescued are fine.""" 
 
 PLAN_SCHEMA = {
     "type": "object",
@@ -65,7 +67,8 @@ PLAN_SCHEMA = {
 
 CHECK_SYSTEM = """You check candidate photos for a news story. Look at each image carefully.
 Accept a photo only if it clearly and recognisably shows what is required. For a specific subject (a species, a place, a landmark), it must be that exact subject, not something similar.
-Reject photos that are blurry, mostly text, maps or diagrams, contain logos or brand names, show identifiable children's faces close up, or could mislead readers about the story.
+Reject photos that are blurry, mostly text, maps, contain logos or brand names, show identifiable children's faces close up, or could mislead readers about the story. (Diagrams of a chemical structure or molecule are fine when that's what is required.)
+Always reject any photo showing animals used in experiments or treated inhumanely: lab mice, rats, rabbits or primates, animals in lab cages, restrained, injected, injured, dissected or distressed. This applies even if the story is about that research.
 Pick the single best acceptable photo, or none."""
 
 CHECK_SCHEMA = {
@@ -99,8 +102,8 @@ def _licence_ok(short_name: str) -> tuple[bool, bool]:
 def commons_candidates(query: str, limit: int = 8) -> list[dict]:
     params = {
         "action": "query", "format": "json", "generator": "search",
-        "gsrsearch": f"{query} filetype:bitmap", "gsrnamespace": 6, "gsrlimit": limit,
-        "prop": "imageinfo", "iiprop": "url|extmetadata|size", "iiurlwidth": 1600,
+        "gsrsearch": f"{query} filetype:bitmap|drawing", "gsrnamespace": 6, "gsrlimit": limit,
+        "prop": "imageinfo", "iiprop": "url|extmetadata|size|mime", "iiurlwidth": 1600,
     }
     try:
         r = requests.get(COMMONS_API, params=params, headers={"User-Agent": UA}, timeout=25)
@@ -111,7 +114,8 @@ def commons_candidates(query: str, limit: int = 8) -> list[dict]:
     for p in sorted(pages.values(), key=lambda p: p.get("index", 99)):
         info = (p.get("imageinfo") or [{}])[0]
         meta = info.get("extmetadata") or {}
-        if info.get("width", 0) < 900:
+        is_drawing = info.get("mime") == "image/svg+xml"  # e.g. a chemical structure; rendered at any size
+        if info.get("width", 0) < 900 and not is_drawing:
             continue
         lic = (meta.get("LicenseShortName") or {}).get("value", "")
         usable, crop_ok = _licence_ok(lic)
@@ -269,7 +273,19 @@ def save_photo(url: str, dest: Path, max_width: int = 1600) -> tuple[int, int] |
         r = requests.get(url, headers={"User-Agent": UA}, timeout=40)
         r.raise_for_status()
         img = Image.open(io.BytesIO(r.content))
-        img = ImageOps.exif_transpose(img).convert("RGB")
+        img = ImageOps.exif_transpose(img)
+        if img.mode in ("RGBA", "LA", "P"):
+            # Drawings (like chemical structures) have see-through backgrounds: put them on white.
+            img = img.convert("RGBA")
+            # Centre it on a white square with room around it, so neither the wide website crop
+            # nor the tall Reel crop cuts any of it off.
+            box_w, box_h, side = 1280, 760, 1600
+            scale = min(box_w / img.width, box_h / img.height)
+            img = img.resize((max(1, round(img.width * scale)), max(1, round(img.height * scale))), Image.LANCZOS)
+            white = Image.new("RGBA", (side, side), (255, 255, 255, 255))
+            white.alpha_composite(img, ((side - img.width) // 2, (side - img.height) // 2))
+            img = white
+        img = img.convert("RGB")
     except Exception:  # noqa: BLE001
         return None
     if img.width < 600 or img.height < 400:
