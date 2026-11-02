@@ -32,13 +32,34 @@ FONTS = (ROOT / "static" / "fonts").as_uri()
 
 W, H, FPS = 1080, 1920, 30
 # (layer, starts at, ends at) in seconds. Layer 0 is the hook, then the two facts, then the ending.
-TIMELINE = [(0, 0.0, 3.0), (1, 3.0, 6.2), (2, 6.2, 9.4), (3, 9.4, 11.4)]
+TIMELINE = [(0, 0.0, 4.2), (1, 4.2, 8.4), (2, 8.4, 12.6), (3, 12.6, 14.6)]
 SECONDS = TIMELINE[-1][2]
 FADE_IN, FADE_OUT, RISE = 0.3, 0.2, 34
 PUNCH = 0.6          # seconds of quick push-in at the very start
-WORD_GAP = 0.14      # the hook appears one word at a time
-GROUP_GAP = 0.12     # the facts appear two words at a time
-DESIGN_VERSION = "reel-v5"  # change to redraw every Reel
+WORD_GAP = 0.26      # the hook appears one word at a time
+GROUP_GAP = 0.2      # the facts appear one word at a time, a little quicker as they're longer
+WORD_FADE = 0.38     # how long each word takes to fade in
+WORD_RISE = 14       # pixels each word glides up as it appears
+BAR_SWEEP = 0.5      # the yellow bar under the hook sweeps in over this long
+BANNER_MOVE = 0.5    # the intro banner drops in / slides away over this long
+BANNER_OUT = 2.2     # when it starts sliding away
+HOLD_HOOK = 1.6      # seconds the full hook stays on screen
+HOLD_FACT = 1.5      # seconds each full fact stays on screen
+END_CARD = 2.0
+
+
+def set_timeline(r: dict) -> None:
+    """Each part lasts as long as its words take to appear, plus time to read."""
+    global TIMELINE, SECONDS
+    beats = (r["beats"] + r["beats"])[:2]
+    hook = 0.12 + len(r["hook"].split()) * WORD_GAP + BAR_SWEEP + HOLD_HOOK
+    facts = [max(3.5, 0.1 + len(b.split()) * GROUP_GAP + HOLD_FACT) for b in beats]
+    t, TIMELINE = 0.0, []
+    for idx, d in enumerate([hook, *facts, END_CARD]):
+        TIMELINE.append((idx, round(t, 2), round(t + d, 2)))
+        t += d
+    SECONDS = round(t, 2)
+DESIGN_VERSION = "reel-v13"  # change to redraw every Reel
 
 PAGE = """<!doctype html><html><head><meta charset="utf-8"><style>
 @font-face {{ font-family: "Bricolage Grotesque"; font-weight: 200 800; src: url("{fonts}/bricolage-grotesque.woff2") format("woff2"); }}
@@ -71,6 +92,8 @@ TEXT_CSS = """
 .where {{ font-size: 30px; font-weight: 600; opacity: .85; }}
 .end-cta {{ align-self: flex-start; background: #F2AE1C; color: #132036; font-weight: 800; font-size: 60px; padding: 22px 40px; border-radius: 999px; letter-spacing: -0.02em; }}
 .end-sub {{ font-size: 40px; font-weight: 650; }}
+.end-handle {{ font-size: 34px; font-weight: 650; opacity: .92; margin-top: -10px; }}
+.end-handle span {{ display: inline-block; min-width: 186px; font-weight: 500; opacity: .75; }}
 """
 
 SUN = ('<svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="30" r="11" fill="#FFD266"/>'
@@ -132,10 +155,11 @@ def make_music(path: Path, seconds: float, rate: int = 44100) -> None:
 
 # ─── Drawing the layers ──────────────────────────────────────────────────────
 
-def render_layers(page, r: dict, site_name: str, tmp: Path, page_hi=None, site_domain: str = "") -> tuple[Image.Image, list[list[Image.Image]]]:
+def render_layers(page, r: dict, site_name: str, tmp: Path, page_hi=None, site_domain: str = "",
+                  handles: list | None = None) -> tuple[Image.Image, list[dict]]:
     """Background (photo or illustration) plus one transparent text layer per moment in the video.
     The background is drawn at double resolution so the slow zoom stays sharp and smooth."""
-    def shot(css: str, body: str, transparent: bool, pg=None) -> Image.Image:
+    def shot(css: str, body: str, transparent: bool, pg=None, want_sun: bool = False, sun_sel: str = ".kicker svg"):
         pg = pg or page
         f = tmp / "layer.html"
         f.write_text(PAGE.format(fonts=FONTS, css=css, body=body), encoding="utf-8")
@@ -147,6 +171,10 @@ def render_layers(page, r: dict, site_name: str, tmp: Path, page_hi=None, site_d
         pg.screenshot(path=str(png), omit_background=transparent)
         img = Image.open(png).convert("RGBA")
         img.load()
+        if want_sun:
+            rect = pg.evaluate("(sel) => { const r = document.querySelector(sel).getBoundingClientRect();"
+                               " return [r.x, r.y, r.width, r.height]; }", sun_sel)
+            return img, rect
         return img
 
     art = f'<img src="{r["photo"]}" alt="">' if r["photo"] else r["cover"]
@@ -156,28 +184,139 @@ def render_layers(page, r: dict, site_name: str, tmp: Path, page_hi=None, site_d
     kicker = f'<p class="kicker">{SUN}<span><b>Good news</b> &nbsp;·&nbsp; {html.escape(r["section"])}</span></p>'
     where = html.escape(r["location"]) if r.get("location") else ""
 
-    def words(text: str, shown: int) -> str:
-        # Every word is laid out from the start (so nothing jumps); later ones are just hidden.
-        parts = html.escape(text).split()
-        return " ".join(f'<span{"" if i < shown else " class=h"}>{w}</span>' for i, w in enumerate(parts))
-
-    def states(text: str, cls: str, size: int, per: int, extra_done: str = "") -> list[str]:
-        n = len(text.split())
-        steps = list(range(0, n, per)) + [n]
-        return [f'<div class="block">{kicker}<p class="{cls}{" done" if k >= n else ""}" style="font-size:{size}px">'
-                f'{words(text, k)}</p>{extra_done.replace("<p ", "<p data-x ", 1) if k >= n else extra_done.replace("<p class=\"", "<p class=\"h ", 1)}</div>'
-                for k in steps]
-
-    beats = (r["beats"] + r["beats"])[:2]
     css = TEXT_CSS.replace("{{", "{").replace("}}", "}")
+    beats = (r["beats"] + r["beats"])[:2]
+    handles_html = "".join(f'<p class="end-handle"><span>{html.escape(name)}</span> @{html.escape(h)}</p>'
+                           for name, h in (handles or []))
+
+    def block(text: str, cls: str, size: int, extra: str, show_kicker: bool, word: int | None,
+              show_extra: bool, show_bar: bool = False) -> str:
+        # The full layout is always present (so nothing ever moves); we choose what's visible.
+        parts = html.escape(text).split()
+        spans = " ".join(f'<span{"" if word == i else " class=h"}>{w}</span>' for i, w in enumerate(parts))
+        k = kicker if show_kicker else kicker.replace('class="kicker"', 'class="kicker h"', 1)
+        ex = extra if show_extra else extra.replace('<p class="', '<p class="h ', 1)
+        return f'<div class="block">{k}<p class="{cls}{" done" if show_bar else ""}" style="font-size:{size}px">{spans}</p>{ex}</div>'
+
+    def crop(img: Image.Image):
+        box = img.getbbox()
+        return (img.crop(box), (box[0], box[1])) if box else None
+
+    def beat(text: str, cls: str, size: int, extra: str = "", animate_sun: bool = False) -> dict:
+        n = len(text.split())
+        sun = None
+        if animate_sun:
+            body = block(text, cls, size, extra, True, None, False).replace("<svg ", '<svg style="visibility:hidden" ', 1)
+            base, sun = shot(css, body, True, want_sun=True)
+        else:
+            base = shot(css, block(text, cls, size, extra, True, None, False), True)
+        word_layers = [crop(shot(css, block(text, cls, size, extra, False, i, False), True)) for i in range(n)]
+        # After the last word: the yellow bar (swept in) and then the location, each on its own.
+        bar = crop(shot(css, block(text, cls, size, extra, False, -1, False, True), True)) if cls == "hook" else None
+        extra_layer = crop(shot(css, block(text, cls, size, extra, False, -1, True), True)) if extra else None
+        return {"base": base, "words": word_layers, "bar": bar, "extra": extra_layer, "sun": sun}
+
     plan = [
-        states(r["hook"], "hook", hook_size(r["hook"]), 1, f'<p class="where">{where}</p>' if where else ""),
-        states(beats[0], "fact", fact_size(beats[0]), 2),
-        states(beats[1], "fact", fact_size(beats[1]), 2),
-        [f'<div class="block">{kicker}<p class="end-cta">Full story: link in bio</p><p class="end-sub">{html.escape(site_domain or site_name)}</p></div>'],
+        beat(r["hook"], "hook", hook_size(r["hook"]), f'<p class="where">{where}</p>' if where else ""),
+        beat(beats[0], "fact", fact_size(beats[0])),
+        beat(beats[1], "fact", fact_size(beats[1])),
+        {"base": shot(css, f'<div class="block">{kicker}<p class="end-cta">Full story: link in bio</p>'
+                           f'<p class="end-sub">{html.escape(site_domain or site_name)}</p>{handles_html}</div>', True),
+         "words": [], "bar": None, "extra": None},
     ]
-    layers = [[shot(css, body, True) for body in beat] for beat in plan]
-    return bg, layers
+    # Intro banner: drops in, the sun rises inside it, then it slides away.
+    banner_css = css + """
+.banner { position: absolute; top: 200px; left: 50%; transform: translateX(-50%); display: flex; align-items: center;
+  gap: 18px; padding: 18px 40px 18px 26px; border-radius: 999px; background: rgba(11,18,32,.66);
+  box-shadow: 0 12px 30px -10px rgba(0,0,0,.5), 0 0 0 1.5px rgba(255,210,102,.35); white-space: nowrap;
+  font-size: 50px; font-weight: 800; letter-spacing: -0.025em; }
+.banner svg { width: 70px; height: 70px; visibility: hidden; }"""
+    b_img, b_rect = shot(banner_css, f'<div class="banner">{SUN}<span>{html.escape(site_name)}</span></div>', True,
+                         want_sun=True, sun_sel=".banner svg")
+    box = b_img.getbbox()
+    plan[0]["banner"] = (b_img.crop(box), (box[0], box[1]), (b_rect[0] - box[0], b_rect[1] - box[1], b_rect[2]))
+    return bg, plan
+
+
+SUN_COL, WHITE = (255, 210, 102), (255, 255, 255)
+RAYS = [((24, 6), (24, 12)), ((8.4, 14.4), (12.6, 18.6)), ((39.6, 14.4), (35.4, 18.6)), ((3, 30), (8, 30)), ((40, 30), (45, 30))]
+RAY_ORDER = [3, 1, 0, 2, 4]  # left, upper-left, top, upper-right, right: fanning across
+_sun_cache: dict = {}
+
+
+def _ease(p: float, power: int = 3) -> float:
+    p = max(0.0, min(1.0, p))
+    return 1 - (1 - p) ** power
+
+
+def sun_icon(size: int, t: float) -> Image.Image:
+    """The TBN sunrise mark at time t: the sun rises over the horizon, rays fan out, a warm glow
+    blooms and settles. Drawn large and shrunk down so the edges stay smooth. Returns a padded
+    image (room for the glow) whose centre square is the icon."""
+    from PIL import ImageDraw, ImageFilter
+    t = min(t, 2.2)  # settled after this, so later frames reuse the last drawing
+    key = (size, round(t * FPS))
+    if key in _sun_cache:
+        return _sun_cache[key]
+    ss = 8
+    S = size * ss
+    pad = size  # room around the icon for the glow (it spills a little beyond the banner, like light)
+    canvas = Image.new("RGBA", (S + 2 * pad * ss, S + 2 * pad * ss), (0, 0, 0, 0))
+    u = S / 48  # one unit of the 48-unit design
+    ox = oy = pad * ss
+    P = lambda x, y: (ox + x * u, oy + y * u)  # noqa: E731
+    sw = 3.6 * u
+
+    rise = _ease((t - 0.1) / 0.75)                 # sun climbs from below the horizon
+    cy = 30 + (1 - rise) * 24
+    glow = _ease((t - 0.45) / 0.45) * (1 - 0.6 * _ease((t - 1.2) / 0.9))  # blooms, then settles to a soft warmth
+
+    # Glow: a soft blurred disc behind the sun
+    if glow > 0.01:
+        g = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
+        gd = ImageDraw.Draw(g)
+        cx_, cy_ = P(24, cy)
+        for r_, a_, blur in ((34, 150, 12), (19, 255, 6)):  # a wide soft halo plus a brighter inner glow
+            g = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
+            ImageDraw.Draw(g).ellipse((cx_ - r_ * u, cy_ - r_ * u, cx_ + r_ * u, cy_ + r_ * u),
+                                      fill=(255, 190, 60, int(a_ * glow)))
+            canvas.alpha_composite(g.filter(ImageFilter.GaussianBlur(blur * u)))
+
+    # Sun disc, hidden below the horizon line until it rises
+    disc = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
+    dd = ImageDraw.Draw(disc)
+    cx_, cy_ = P(24, cy)
+    r = 11 * u
+    dd.ellipse((cx_ - r, cy_ - r, cx_ + r, cy_ + r), fill=SUN_COL + (255,))
+    horizon_y = P(0, 42)[1]
+    disc.paste((0, 0, 0, 0), (0, int(horizon_y), disc.width, disc.height))
+    canvas.alpha_composite(disc)
+
+    d = ImageDraw.Draw(canvas)
+    # Rays fan out one after another, growing from the sun outwards
+    for n, i in enumerate(RAY_ORDER):
+        p = _ease((t - 0.55 - n * 0.09) / 0.3)
+        if p <= 0:
+            continue
+        (x1, y1), (x2, y2) = RAYS[i]
+        sx, sy = x2 + (x1 - x2) * p, y2 + (y1 - y2) * p  # extends from the inner end
+        a = int(255 * p)
+        d.line([P(x2, y2), P(sx, sy)], fill=SUN_COL + (a,), width=round(sw))
+        for (ex, ey) in ((x2, y2), (sx, sy)):
+            cxp, cyp = P(ex, ey)
+            d.ellipse((cxp - sw / 2, cyp - sw / 2, cxp + sw / 2, cyp + sw / 2), fill=SUN_COL + (a,))
+    # Horizon line draws itself from the middle outwards
+    h = _ease(t / 0.35)
+    if h > 0:
+        x1, x2 = 24 - 22 * h, 24 + 22 * h
+        d.line([P(x1, 42), P(x2, 42)], fill=WHITE + (255,), width=round(sw))
+        for ex in (x1, x2):
+            cxp, cyp = P(ex, 42)
+            d.ellipse((cxp - sw / 2, cyp - sw / 2, cxp + sw / 2, cyp + sw / 2), fill=WHITE + (255,))
+
+    out = canvas.resize((size + 2 * pad, size + 2 * pad), Image.LANCZOS)
+    _sun_cache[key] = out
+    return out
 
 
 def _faded(layer: Image.Image, a: float) -> Image.Image:
@@ -197,7 +336,7 @@ def _zoom(t: float) -> float:
     return 1.07 + 0.05 * (p * p * (3 - 2 * p))
 
 
-def frame_at(bg: Image.Image, layers: list[list[Image.Image]], t: float) -> Image.Image:
+def frame_at(bg: Image.Image, layers: list[dict], t: float) -> Image.Image:
     # Worked out in fractions of a pixel on the double-resolution background, so it glides.
     z = _zoom(t)
     bw, bh = bg.size
@@ -216,25 +355,58 @@ def frame_at(bg: Image.Image, layers: list[list[Image.Image]], t: float) -> Imag
         a = max(0.0, min(1.0, a))
         if a <= 0:
             continue
-        # Words pop in a few at a time, like TikTok captions.
-        steps = layers[idx]
+        # Each word fades in on its own while gliding up a few pixels, eased so it settles gently.
+        layer = layers[idx]
         reveal = start + (0.12 if idx == 0 else 0.1)
         gap = WORD_GAP if idx == 0 else GROUP_GAP
-        s_ = (t - reveal) / gap
-        k = int(s_) if s_ > 0 else 0
-        if k >= len(steps) - 1:
-            layer = steps[-1]
-        else:
-            layer = steps[k].copy()
-            frac = s_ - k if s_ > 0 else 0.0
-            layer.alpha_composite(_faded(steps[k + 1], min(1.0, frac * 1.8)))
-        layer = _faded(layer, a)
-        if dy:
-            shifted = Image.new("RGBA", (W, H))
-            shifted.paste(layer, (0, dy))
-            layer = shifted
-        frame.alpha_composite(layer)
+        frame.alpha_composite(_faded(layer["base"], a), dest=(0, dy))
+        for i, item in enumerate(layer["words"]):
+            p = (t - (reveal + i * gap)) / WORD_FADE
+            if item is None or p <= 0:
+                continue
+            e = 1 - (1 - min(1.0, p)) ** 3
+            img, (x, y) = item
+            frame.alpha_composite(_faded(img, e * a), dest=(x, y + dy + round(WORD_RISE * (1 - e))))
+        done_at = reveal + max(0, len(layer["words"]) - 1) * gap + WORD_FADE * 0.6
+        if layer.get("bar"):
+            # The yellow bar sweeps in from the left, fast then easing to a stop.
+            p = (t - done_at) / BAR_SWEEP
+            if p > 0:
+                e = 1 - (1 - min(1.0, p)) ** 4
+                img, (x, y) = layer["bar"]
+                w = max(1, round(img.width * e))
+                frame.alpha_composite(_faded(img.crop((0, 0, w, img.height)), a), dest=(x, y + dy))
+        if layer.get("extra"):
+            p = (t - done_at - BAR_SWEEP * 0.45) / WORD_FADE
+            if p > 0:
+                e = 1 - (1 - min(1.0, p)) ** 3
+                img, (x, y) = layer["extra"]
+                frame.alpha_composite(_faded(img, e * a), dest=(x, y + dy + round(WORD_RISE * (1 - e))))
+    draw_banner(frame, layers[0].get("banner"), t)
     return frame.convert("RGB")
+
+
+def draw_banner(frame: Image.Image, banner, t: float) -> None:
+    if not banner or t > BANNER_OUT + BANNER_MOVE:
+        return
+    img, (x, y), (sx, sy, sw_) = banner
+    travel = y + img.height + 40
+    if t < BANNER_MOVE:  # drops in with a gentle overshoot
+        p = t / BANNER_MOVE
+        c = 1.4
+        e = 1 + (c + 1) * (p - 1) ** 3 + c * (p - 1) ** 2
+        off, a = -(1 - e) * travel, min(1.0, p * 2.5)
+    elif t < BANNER_OUT:
+        off, a = 0.0, 1.0
+    else:  # slides back up and fades
+        p = (t - BANNER_OUT) / BANNER_MOVE
+        e = p * p * p
+        off, a = -e * travel * 0.6, 1 - e
+    yy = round(y + off)
+    frame.alpha_composite(_faded(img, a), dest=(x, yy))
+    icon = sun_icon(round(sw_), t - 0.25)
+    pad = round(sw_)
+    frame.alpha_composite(_faded(icon, a), dest=(round(x + sx) - pad, round(yy + sy) - pad))
 
 
 # ─── Video ───────────────────────────────────────────────────────────────────
@@ -252,7 +424,7 @@ def make_reel(bg: Image.Image, layers: list[Image.Image], silent_out: Path, ig_o
     the Instagram version with the music bed (same pictures, no second encode)."""
     cmd = [ffmpeg_exe(), "-y", "-loglevel", "error",
            "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{H}", "-r", str(FPS), "-i", "-",
-           "-c:v", "libx264", "-preset", "slow", "-crf", "17", "-tune", "film", "-pix_fmt", "yuv420p",
+           "-c:v", "libx264", "-preset", "slow", "-crf", "18", "-maxrate", "8M", "-bufsize", "16M", "-pix_fmt", "yuv420p",
            "-profile:v", "high", "-an", "-movflags", "+faststart", str(silent_out)]
     proc = subprocess.Popen(cmd, stdin=subprocess.PIPE)
     try:
@@ -290,6 +462,11 @@ def main() -> None:
     music = bool(cfg["instagram"].get("reels_music", True))
     site_name = cfg["site"]["name"]
     site_domain = cfg["site"].get("base_url", "").split("//")[-1].strip("/")
+    handles = []
+    for name, key in (("Instagram", "instagram_url"), ("TikTok", "tiktok_url")):
+        url = (cfg["site"].get(key) or "").rstrip("/")
+        if url:
+            handles.append((name, url.split("/")[-1].lstrip("@")))
     CACHE.mkdir(exist_ok=True)
     OUT.mkdir(parents=True, exist_ok=True)
     tmp = CACHE / "reel-tmp"
@@ -305,7 +482,8 @@ def main() -> None:
                     photo_bytes = Path(r["photo"][7:]).read_bytes()
                 except OSError:
                     r["photo"] = ""
-            key = hashlib.md5((DESIGN_VERSION + str(music) + json.dumps(r, sort_keys=True)).encode() + photo_bytes).hexdigest()[:10]
+            key = hashlib.md5((DESIGN_VERSION + str(music) + json.dumps(r, sort_keys=True) + str(handles)).encode()
+                              + photo_bytes).hexdigest()[:10]
             video = CACHE / f"{r['slug']}-reel-{key}.mp4"
             silent = CACHE / f"{r['slug']}-tiktok-{key}.mp4"
             story = CACHE / f"{r['slug']}-story-{key}.jpg"
@@ -318,8 +496,11 @@ def main() -> None:
                     browser = pw.chromium.launch()
                     page = browser.new_page(viewport={"width": W, "height": H})
                     page_hi = browser.new_page(viewport={"width": W, "height": H}, device_scale_factor=2)
-                bg, layers = render_layers(page, r, site_name, tmp, page_hi, site_domain)
-                frame_at(bg, layers, 2.6).save(story, "JPEG", quality=90)  # the hook, fully shown
+                set_timeline(r)
+                bg, layers = render_layers(page, r, site_name, tmp, page_hi, site_domain, handles)
+                cover_t = max(0.5, TIMELINE[0][2] - 0.4)  # the hook, fully shown, bar and all
+                frame_at(bg, layers, cover_t).save(story, "JPEG", quality=90)
+                story.with_suffix(".json").write_text(json.dumps({"cover_ms": int(cover_t * 1000)}))
                 if want_video:
                     make_reel(bg, layers, silent, video, music)
                 made += 1
@@ -330,13 +511,16 @@ def main() -> None:
             if want_video and r.get("tiktok"):
                 shutil.copyfile(silent, OUT / f"{r['slug']}-tiktok.mp4")
             shutil.copyfile(story, OUT / f"{r['slug']}-story.jpg")
+            if story.with_suffix(".json").exists():
+                shutil.copyfile(story.with_suffix(".json"), OUT / f"{r['slug']}-reel.json")
     finally:
         if browser is not None:
             browser.close()
             pw.stop()
         shutil.rmtree(tmp, ignore_errors=True)
-    for f in list(CACHE.glob("*-reel-*.mp4")) + list(CACHE.glob("*-tiktok-*.mp4")) + list(CACHE.glob("*-story-*.jpg")):
-        if f.name not in keep:
+    for f in (list(CACHE.glob("*-reel-*.mp4")) + list(CACHE.glob("*-tiktok-*.mp4"))
+              + list(CACHE.glob("*-story-*.jpg")) + list(CACHE.glob("*-story-*.json"))):
+        if f.name not in keep and f.with_suffix(".jpg").name not in keep:
             f.unlink()
     print(f"Reels: {made} made, {reused} reused.")
 

@@ -32,6 +32,8 @@ site:
   contact_email: "hello@ticketyboonews.co.uk"
   # Your Instagram page, e.g. "https://www.instagram.com/ticketyboonews". Linked from the site.
   instagram_url: "https://www.instagram.com/ticketyboonews"
+  # Your TikTok page. Shown on the end of each video (and leave "" to hide it).
+  tiktok_url: "https://www.tiktok.com/@ticketyboonews"
 
 seo:
   # true  = AI companies may also use the site's stories to train their AI models.

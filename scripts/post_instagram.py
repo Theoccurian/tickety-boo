@@ -172,8 +172,12 @@ def publish(token: str, user_id: str, image_urls: list[str], caption: str) -> st
 
 def publish_reel(token: str, user_id: str, video_url: str, caption: str, ig: dict) -> str:
     """A short vertical video. Reels are what Instagram shows to people who don't follow you yet."""
-    params = dict(media_type="REELS", video_url=video_url, caption=caption,
-                  thumb_offset="2600",  # cover image: the moment the hook is fully on screen
+    cover_ms = 3000
+    try:  # the moment the hook is fully on screen, worked out when the video was made
+        cover_ms = int(requests.get(video_url.replace("-reel.mp4", "-reel.json"), timeout=15).json()["cover_ms"])
+    except Exception:  # noqa: BLE001
+        pass
+    params = dict(media_type="REELS", video_url=video_url, caption=caption, thumb_offset=str(cover_ms),
                   share_to_feed="true" if ig.get("reels_in_grid", False) else "false", access_token=token)
     if ig.get("trial_reels", False):
         # Trial reels go to non-followers first (needs 200+ followers). Shared to followers if they do well.
