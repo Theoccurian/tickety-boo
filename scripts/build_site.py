@@ -324,7 +324,14 @@ def main() -> None:
 
     # What scripts/make_reels.py needs to make each story's Reel and Instagram Story image
     reels = []
+    # Only recent stories can still go to Instagram, so only make videos for those (keeps updates quick).
+    reel_window = dt.timedelta(days=float((cfg.get("instagram") or {}).get("max_story_age_days", 3)) + 1)
+    ig_done = (json.loads((ROOT / "data" / "instagram_posted.json").read_text()).get("posts", {})
+               if (ROOT / "data" / "instagram_posted.json").exists() else {})
     for a in articles:
+        rec = ig_done.get(a["slug"], {})
+        if now - a["date"] > reel_window or rec.get("reel_id") or rec.get("reel_skipped"):
+            continue  # too old for Instagram, or its Reel is already done
         p = a.get("photo")
         beats = [k for k in a["key_points"][:2]] or [a["dek"]]
         reels.append({

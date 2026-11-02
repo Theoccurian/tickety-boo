@@ -127,6 +127,13 @@ def caption_for(a: dict, cfg: dict) -> str:
     if not cap:
         tags = " ".join(cfg["instagram"].get("brand_hashtags", []))
         cap = f"{a['title']}\n\n{a.get('dek', '')}\n\nFull story: link in bio\n\n{tags}"
+    handles = [str(h).strip().lstrip("@") for h in (a.get("instagram_tags") or []) if str(h).strip()]
+    if handles and cfg["instagram"].get("mention_accounts", True):
+        mention = "📣 Featuring " + " ".join("@" + h for h in handles[:3])
+        if "Full story: link in bio" in cap:
+            cap = cap.replace("Full story: link in bio", mention + "\n\nFull story: link in bio", 1)
+        else:
+            cap = f"{cap}\n\n{mention}"
     img = photo_on_instagram(a, cfg)
     if img and img.get("library") == "Wikimedia Commons":
         credit = f"📷 Photo: {img.get('credit', 'Unknown')} / Wikimedia Commons, {img.get('licence', '')}"

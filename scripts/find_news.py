@@ -35,6 +35,7 @@ from common import (
     load_config, load_json, save_json, slugify, write_article,
 )
 from images import find_image, save_photo
+from tags import find_instagram_tags
 
 USER_AGENT = "Mozilla/5.0 (compatible; GoodNewsBot/1.0; +https://github.com)"
 NOW = dt.datetime.now(dt.timezone.utc)
@@ -525,6 +526,11 @@ def main() -> None:
                 log(f"    photo: {image['caption']} ({image['library']})")
             elif image:
                 log("    no photo: couldn't download the chosen one")
+        if cfg.get("instagram", {}).get("mention_accounts", True):
+            try:
+                meta["instagram_tags"] = find_instagram_tags(ai, meta["title"], meta["dek"], cand["url"], log=log)
+            except Exception as e:  # noqa: BLE001 - mentions are a nice-to-have
+                log(f"    tags skipped: {e}")
         write_article(path, meta, art["body_markdown"])
         used_sources.add(cand["source"])
         seen["recent_headlines"] += [meta["title"], cand["title"]]

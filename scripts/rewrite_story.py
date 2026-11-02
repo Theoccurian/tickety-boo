@@ -20,6 +20,7 @@ from pathlib import Path
 from common import ARTICLES_DIR, PHOTOS_DIR, ROOT, load_config, read_article, slugify, write_article
 from find_news import AI, fetch_source_text, log, write_one
 from images import find_image, save_photo
+from tags import find_instagram_tags
 from publish_or_review import LABEL, pr_body, run
 
 
@@ -118,6 +119,11 @@ def main() -> None:
         photo.unlink()
         log("No suitable photo, so it will use the sunrise illustration.")
 
+    if cfg.get("instagram", {}).get("mention_accounts", True):
+        try:
+            meta["instagram_tags"] = find_instagram_tags(ai, meta["title"], meta["dek"], meta["source_url"], log=log)
+        except Exception as e:  # noqa: BLE001
+            log(f"Tags skipped: {e}")
     write_article(path, meta, body)
     git("add", "-A", str(path), str(PHOTOS_DIR))
     if not git("status", "--porcelain").strip():

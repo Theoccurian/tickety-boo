@@ -92,6 +92,9 @@ def pr_body(a: dict, cat_names: dict, branch: str = "") -> str:
 
 ---
 
+**Instagram mentions:** {(' '.join('@' + str(h) for h in a.get('instagram_tags') or [])) or 'none found'}  
+*(Found on each organisation's own website. To change them, edit the `instagram_tags:` list in the article file, or delete it.)*
+
 **Instagram caption:**
 
 > {a.get('instagram_caption', '').replace(chr(10), chr(10) + '> ')}
