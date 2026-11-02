@@ -260,6 +260,7 @@ Strict rules:
 10. Key points: exactly 3 short, self-contained factual statements (each under 20 words) summarising who, what, where and the outcome, so a reader or search engine can understand the story at a glance. Same facts rules apply.
 11. Instagram caption: start with one short line naming the key subject and place in plain, searchable words, the way someone would search for it (e.g. "Irrawaddy dolphins, Mekong River, Cambodia"). Then 2-4 short, friendly sentences in your own words telling the story (same facts rules apply), with the same light English touch (one phrase at most), at most one fitting emoji, then a blank line, then "Full story: link in bio", then a blank line, then 3-5 specific, relevant hashtags plus {hashtags}.
 12. Video hook (reel_hook): the big opening line of a short vertical video, 4-9 words, that makes someone stop scrolling. Plain, vivid and true to the facts: lead with the most surprising or heartening fact (e.g. "Six baby dolphins just beat the odds", "A wrong turn saved a family from a fire"). No questions, no "you won't believe", no exaggeration, at most one emoji at the end.
+13. Animal research: if the findings come from experiments on animals (e.g. mice, rats, monkeys), do not mention the animals or what was done to them anywhere (body, headline, standfirst, key points, caption, video hook). Write purely about the science and the breakthrough. But stay honest about the stage: say clearly, once in the body and in the key points, that this is early laboratory or preclinical research that has not yet been tested in people (e.g. "in early laboratory studies", "in preclinical research, ahead of human trials"). Never imply a treatment works in humans when it has only been shown in the lab.
 
 Set usable=false (and leave the other fields brief) if the source text is too thin to write 250 accurate words, is not actually good news, is promotional/opinion, or describes something that hasn't happened yet."""
 
@@ -294,6 +295,7 @@ def article_schema(cats: list[str], guide: str = "") -> dict:
 VERIFY_SYSTEM = """You are a strict fact-checker. Compare the ARTICLE with the SOURCE TEXT it was written from.
 List every specific claim in the article (names, numbers, dates, places, organisations, quotes, outcomes) that is NOT supported by the source, or that misrepresents it.
 Quotes must appear word-for-word in the source. General background that is common knowledge is acceptable.
+Leaving out that a study used animals is deliberate and is NOT a problem, as long as the article makes clear the research is at an early laboratory/preclinical stage and does not imply results in humans. Flag it if the article implies human results that the source doesn't support.
 Set accurate=true only if there are no problems."""
 
 VERIFY_SCHEMA = {
