@@ -173,6 +173,7 @@ def publish(token: str, user_id: str, image_urls: list[str], caption: str) -> st
 def publish_reel(token: str, user_id: str, video_url: str, caption: str, ig: dict) -> str:
     """A short vertical video. Reels are what Instagram shows to people who don't follow you yet."""
     params = dict(media_type="REELS", video_url=video_url, caption=caption,
+                  thumb_offset="2600",  # cover image: the moment the hook is fully on screen
                   share_to_feed="true" if ig.get("reels_in_grid", False) else "false", access_token=token)
     if ig.get("trial_reels", False):
         # Trial reels go to non-followers first (needs 200+ followers). Shared to followers if they do well.

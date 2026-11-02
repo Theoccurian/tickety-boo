@@ -34,8 +34,11 @@ W, H, FPS = 1080, 1920, 30
 # (layer, starts at, ends at) in seconds. Layer 0 is the hook, then the two facts, then the ending.
 TIMELINE = [(0, 0.0, 3.0), (1, 3.0, 6.2), (2, 6.2, 9.4), (3, 9.4, 11.4)]
 SECONDS = TIMELINE[-1][2]
-FADE_IN, FADE_OUT, RISE = 0.35, 0.2, 34
-DESIGN_VERSION = "reel-v4"  # change to redraw every Reel
+FADE_IN, FADE_OUT, RISE = 0.3, 0.2, 34
+PUNCH = 0.6          # seconds of quick push-in at the very start
+WORD_GAP = 0.14      # the hook appears one word at a time
+GROUP_GAP = 0.12     # the facts appear two words at a time
+DESIGN_VERSION = "reel-v5"  # change to redraw every Reel
 
 PAGE = """<!doctype html><html><head><meta charset="utf-8"><style>
 @font-face {{ font-family: "Bricolage Grotesque"; font-weight: 200 800; src: url("{fonts}/bricolage-grotesque.woff2") format("woff2"); }}
@@ -61,7 +64,9 @@ TEXT_CSS = """
 .kicker svg {{ width: 38px; height: 38px; }}
 .kicker b {{ color: #FFD266; font-weight: 800; }}
 .hook {{ font-weight: 800; line-height: 1.02; letter-spacing: -0.035em; text-wrap: balance; text-shadow: 0 3px 18px rgba(0,0,0,.35); }}
-.hook::after {{ content: ""; display: block; width: 150px; height: 12px; margin-top: 26px; border-radius: 6px; background: #F2AE1C; }}
+.hook::after {{ content: ""; display: block; width: 150px; height: 12px; margin-top: 26px; border-radius: 6px; background: #F2AE1C; visibility: hidden; }}
+.hook.done::after {{ visibility: visible; }}
+.h {{ visibility: hidden; }}
 .fact {{ font-weight: 700; line-height: 1.16; letter-spacing: -0.02em; text-wrap: pretty; text-shadow: 0 2px 12px rgba(0,0,0,.35); }}
 .where {{ font-size: 30px; font-weight: 600; opacity: .85; }}
 .end-cta {{ align-self: flex-start; background: #F2AE1C; color: #132036; font-weight: 800; font-size: 60px; padding: 22px 40px; border-radius: 999px; letter-spacing: -0.02em; }}
@@ -127,7 +132,7 @@ def make_music(path: Path, seconds: float, rate: int = 44100) -> None:
 
 # ─── Drawing the layers ──────────────────────────────────────────────────────
 
-def render_layers(page, r: dict, site_name: str, tmp: Path, page_hi=None, site_domain: str = "") -> tuple[Image.Image, list[Image.Image]]:
+def render_layers(page, r: dict, site_name: str, tmp: Path, page_hi=None, site_domain: str = "") -> tuple[Image.Image, list[list[Image.Image]]]:
     """Background (photo or illustration) plus one transparent text layer per moment in the video.
     The background is drawn at double resolution so the slow zoom stays sharp and smooth."""
     def shot(css: str, body: str, transparent: bool, pg=None) -> Image.Image:
@@ -149,24 +154,52 @@ def render_layers(page, r: dict, site_name: str, tmp: Path, page_hi=None, site_d
     bg = shot(BG_CSS.format(colour=r["colour"]), f'<div class="art">{art}</div><div class="fade"></div>{credit}', False, page_hi).convert("RGB")
 
     kicker = f'<p class="kicker">{SUN}<span><b>Good news</b> &nbsp;·&nbsp; {html.escape(r["section"])}</span></p>'
-    where = f'<p class="where">{html.escape(r["location"])}</p>' if r.get("location") else ""
-    hook = html.escape(r["hook"])
-    beats = [html.escape(b) for b in (r["beats"] + r["beats"])[:2]]
-    bodies = [
-        f'<div class="block">{kicker}<p class="hook" style="font-size:{hook_size(r["hook"])}px">{hook}</p>{where}</div>',
-        f'<div class="block">{kicker}<p class="fact" style="font-size:{fact_size(r["beats"][0])}px">{beats[0]}</p></div>',
-        f'<div class="block">{kicker}<p class="fact" style="font-size:{fact_size(beats[1])}px">{beats[1]}</p></div>',
-        f'<div class="block">{kicker}<p class="end-cta">Full story: link in bio</p><p class="end-sub">{html.escape(site_domain or site_name)}</p></div>',
+    where = html.escape(r["location"]) if r.get("location") else ""
+
+    def words(text: str, shown: int) -> str:
+        # Every word is laid out from the start (so nothing jumps); later ones are just hidden.
+        parts = html.escape(text).split()
+        return " ".join(f'<span{"" if i < shown else " class=h"}>{w}</span>' for i, w in enumerate(parts))
+
+    def states(text: str, cls: str, size: int, per: int, extra_done: str = "") -> list[str]:
+        n = len(text.split())
+        steps = list(range(0, n, per)) + [n]
+        return [f'<div class="block">{kicker}<p class="{cls}{" done" if k >= n else ""}" style="font-size:{size}px">'
+                f'{words(text, k)}</p>{extra_done.replace("<p ", "<p data-x ", 1) if k >= n else extra_done.replace("<p class=\"", "<p class=\"h ", 1)}</div>'
+                for k in steps]
+
+    beats = (r["beats"] + r["beats"])[:2]
+    css = TEXT_CSS.replace("{{", "{").replace("}}", "}")
+    plan = [
+        states(r["hook"], "hook", hook_size(r["hook"]), 1, f'<p class="where">{where}</p>' if where else ""),
+        states(beats[0], "fact", fact_size(beats[0]), 2),
+        states(beats[1], "fact", fact_size(beats[1]), 2),
+        [f'<div class="block">{kicker}<p class="end-cta">Full story: link in bio</p><p class="end-sub">{html.escape(site_domain or site_name)}</p></div>'],
     ]
-    layers = [shot(TEXT_CSS.replace("{{", "{").replace("}}", "}"), b, True) for b in bodies]
+    layers = [[shot(css, body, True) for body in beat] for beat in plan]
     return bg, layers
 
 
-def frame_at(bg: Image.Image, layers: list[Image.Image], t: float) -> Image.Image:
-    # Slow push-in on the picture for the whole video. Worked out in fractions of a pixel on the
-    # double-resolution background, so it glides rather than stepping.
-    p = t / SECONDS
-    z = 1 + 0.05 * (p * p * (3 - 2 * p))  # eases in and out
+def _faded(layer: Image.Image, a: float) -> Image.Image:
+    if a >= 1:
+        return layer
+    out = layer.copy()
+    out.putalpha(layer.getchannel("A").point(lambda v, a=a: int(v * a)))
+    return out
+
+
+def _zoom(t: float) -> float:
+    """A quick push-in in the first moment (so something moves straight away), then a slow drift."""
+    if t < PUNCH:
+        p = t / PUNCH
+        return 1 + 0.07 * (1 - (1 - p) ** 3)
+    p = (t - PUNCH) / (SECONDS - PUNCH)
+    return 1.07 + 0.05 * (p * p * (3 - 2 * p))
+
+
+def frame_at(bg: Image.Image, layers: list[list[Image.Image]], t: float) -> Image.Image:
+    # Worked out in fractions of a pixel on the double-resolution background, so it glides.
+    z = _zoom(t)
     bw, bh = bg.size
     cw, ch = bw / z, bh / z
     x0, y0 = (bw - cw) / 2, (bh - ch) * 0.35
@@ -175,7 +208,7 @@ def frame_at(bg: Image.Image, layers: list[Image.Image], t: float) -> Image.Imag
         if not (start - 0.01 <= t < end + 0.01):
             continue
         a, dy = 1.0, 0
-        if idx > 0 and t < start + FADE_IN:  # the first line is on screen from frame one
+        if idx > 0 and t < start + FADE_IN:
             p = (t - start) / FADE_IN
             a, dy = p, int(RISE * (1 - p) ** 2)
         if idx < len(TIMELINE) - 1 and t > end - FADE_OUT:
@@ -183,10 +216,19 @@ def frame_at(bg: Image.Image, layers: list[Image.Image], t: float) -> Image.Imag
         a = max(0.0, min(1.0, a))
         if a <= 0:
             continue
-        layer = layers[idx]
-        if a < 1:
-            layer = layer.copy()
-            layer.putalpha(layer.getchannel("A").point(lambda v, a=a: int(v * a)))
+        # Words pop in a few at a time, like TikTok captions.
+        steps = layers[idx]
+        reveal = start + (0.12 if idx == 0 else 0.1)
+        gap = WORD_GAP if idx == 0 else GROUP_GAP
+        s_ = (t - reveal) / gap
+        k = int(s_) if s_ > 0 else 0
+        if k >= len(steps) - 1:
+            layer = steps[-1]
+        else:
+            layer = steps[k].copy()
+            frac = s_ - k if s_ > 0 else 0.0
+            layer.alpha_composite(_faded(steps[k + 1], min(1.0, frac * 1.8)))
+        layer = _faded(layer, a)
         if dy:
             shifted = Image.new("RGBA", (W, H))
             shifted.paste(layer, (0, dy))
@@ -277,7 +319,7 @@ def main() -> None:
                     page = browser.new_page(viewport={"width": W, "height": H})
                     page_hi = browser.new_page(viewport={"width": W, "height": H}, device_scale_factor=2)
                 bg, layers = render_layers(page, r, site_name, tmp, page_hi, site_domain)
-                frame_at(bg, layers, 1.0).save(story, "JPEG", quality=90)
+                frame_at(bg, layers, 2.6).save(story, "JPEG", quality=90)  # the hook, fully shown
                 if want_video:
                     make_reel(bg, layers, silent, video, music)
                 made += 1

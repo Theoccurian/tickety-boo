@@ -18,7 +18,7 @@
 </style>
 <section class="wrap tt">
   <h1 class="intro__line">TikTok videos</h1>
-  <p class="tt__intro">Silent versions of recent Reels, ready for a trending sound. Download one, open TikTok, upload it, then add a sound and paste the caption. This page isn't linked anywhere or shown to search engines.</p>
+  <p class="tt__intro">Silent versions of recent Reels, ready for a trending sound. Tap Save video and choose “Save Video” to put it in Photos, then open TikTok, upload it, add a sound and paste the caption. This page isn't linked anywhere or shown to search engines.</p>
   {% if items %}
   <div class="tt__grid">
     {% for a in items %}
@@ -28,7 +28,7 @@
       <p class="tt__meta">{{ a.cat.name }} · {{ a.date_nice }}</p>
       <textarea class="tt__cap" id="cap-{{ loop.index }}" readonly>{{ (a.instagram_caption or a.title) }}</textarea>
       <div class="tt__btns">
-        <a class="tt__btn tt__btn--dl" href="{{ url('/social/' ~ a.slug ~ '-tiktok.mp4') }}" download="{{ a.slug }}-tiktok.mp4">Download video</a>
+        <a class="tt__btn tt__btn--dl" href="{{ url('/social/' ~ a.slug ~ '-tiktok.mp4') }}" download="{{ a.slug }}-tiktok.mp4" data-save="{{ url('/social/' ~ a.slug ~ '-tiktok.mp4') }}" data-name="{{ a.slug }}-tiktok.mp4">Save video</a>
         <button class="tt__btn tt__btn--copy" type="button" data-copy="cap-{{ loop.index }}">Copy caption</button>
       </div>
     </article>
@@ -39,6 +39,36 @@
   {% endif %}
 </section>
 <script>
+// "Save video": on phones, open the share menu so you can choose "Save Video" (straight to Photos).
+// Safari only allows the share menu straight after a tap, so if fetching takes too long we ask for a second tap.
+var ready = {};
+function share(a, file) {
+  return navigator.share({ files: [file] }).catch(function (err) {
+    if (err && err.name === "NotAllowedError") { a.textContent = "Ready, tap again"; return; }
+    if (err && err.name !== "AbortError") window.location.href = a.dataset.save;
+  });
+}
+document.querySelectorAll("[data-save]").forEach(function (a) {
+  a.addEventListener("click", function (e) {
+    if (!navigator.canShare) return; // computers: normal download
+    e.preventDefault();
+    if (ready[a.dataset.save]) { share(a, ready[a.dataset.save]); return; }
+    a.textContent = "Preparing…";
+    fetch(a.dataset.save).then(function (r) {
+      if (!r.ok) throw new Error("not ready");
+      return r.blob();
+    }).then(function (blob) {
+      var file = new File([blob], a.dataset.name, { type: "video/mp4" });
+      if (!navigator.canShare({ files: [file] })) { window.location.href = a.dataset.save; return; }
+      ready[a.dataset.save] = file;
+      a.textContent = "Save video";
+      return share(a, file);
+    }).catch(function () {
+      a.textContent = "Save video";
+      alert("This video isn't ready yet. Try again in a few minutes.");
+    });
+  });
+});
 document.querySelectorAll("[data-copy]").forEach(function (b) {
   b.addEventListener("click", function () {
     var t = document.getElementById(b.dataset.copy);
