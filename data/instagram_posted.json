@@ -224,7 +224,9 @@
     },
     "hell-chicken-fossil-reveals-the-first-known-fruit-eating-dinosaur": {
       "media_id": "18128519110850482",
-      "posted_at": "2026-11-03T08:07:17+00:00"
+      "posted_at": "2026-11-03T08:07:17+00:00",
+      "story_tried": true,
+      "story_id": "17950298349065155"
     }
   }
 }
