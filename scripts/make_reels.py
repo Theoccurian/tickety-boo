@@ -34,12 +34,12 @@ W, H, FPS = 1080, 1920, 30
 # (layer, starts at, ends at) in seconds. Layer 0 is the hook, then the two facts, then the ending.
 TIMELINE = [(0, 0.0, 4.2), (1, 4.2, 8.4), (2, 8.4, 12.6), (3, 12.6, 14.6)]
 SECONDS = TIMELINE[-1][2]
-FADE_IN, FADE_OUT, RISE = 0.3, 0.2, 34
+FADE_IN, FADE_OUT, RISE = 0.3, 0.3, 34
 PUNCH = 0.6          # seconds of quick push-in at the very start
 WORD_GAP = 0.26      # the hook appears one word at a time
 GROUP_GAP = 0.2      # the facts appear one word at a time, a little quicker as they're longer
-WORD_FADE = 0.38     # how long each word takes to fade in
-WORD_RISE = 14       # pixels each word glides up as it appears
+WORD_FADE = 0.5      # how long each panel's text takes to fade in
+WORD_RISE = 18       # pixels the text glides up as it appears
 BAR_SWEEP = 0.5      # the yellow bar under the hook sweeps in over this long
 BANNER_MOVE = 0.5    # the intro banner drops in / slides away over this long
 BANNER_OUT = 2.2     # when it starts sliding away
@@ -49,17 +49,17 @@ END_CARD = 2.0
 
 
 def set_timeline(r: dict) -> None:
-    """Each part lasts as long as its words take to appear, plus time to read."""
+    """Each part stays on screen long enough to read comfortably."""
     global TIMELINE, SECONDS
     beats = (r["beats"] + r["beats"])[:2]
-    hook = 0.12 + len(r["hook"].split()) * WORD_GAP + BAR_SWEEP + HOLD_HOOK
-    facts = [max(3.5, 0.1 + len(b.split()) * GROUP_GAP + HOLD_FACT) for b in beats]
+    hook = 0.12 + WORD_FADE + BAR_SWEEP + max(1.9, len(r["hook"].split()) * 0.22)
+    facts = [max(3.8, 0.1 + WORD_FADE + len(b.split()) * 0.17 + 1.0) for b in beats]
     t, TIMELINE = 0.0, []
     for idx, d in enumerate([hook, *facts, END_CARD]):
         TIMELINE.append((idx, round(t, 2), round(t + d, 2)))
         t += d
     SECONDS = round(t, 2)
-DESIGN_VERSION = "reel-v13"  # change to redraw every Reel
+DESIGN_VERSION = "reel-v14"  # change to redraw every Reel
 
 PAGE = """<!doctype html><html><head><meta charset="utf-8"><style>
 @font-face {{ font-family: "Bricolage Grotesque"; font-weight: 200 800; src: url("{fonts}/bricolage-grotesque.woff2") format("woff2"); }}
@@ -193,7 +193,7 @@ def render_layers(page, r: dict, site_name: str, tmp: Path, page_hi=None, site_d
               show_extra: bool, show_bar: bool = False) -> str:
         # The full layout is always present (so nothing ever moves); we choose what's visible.
         parts = html.escape(text).split()
-        spans = " ".join(f'<span{"" if word == i else " class=h"}>{w}</span>' for i, w in enumerate(parts))
+        spans = " ".join(f'<span{"" if word in (i, "all") else " class=h"}>{w}</span>' for i, w in enumerate(parts))
         k = kicker if show_kicker else kicker.replace('class="kicker"', 'class="kicker h"', 1)
         ex = extra if show_extra else extra.replace('<p class="', '<p class="h ', 1)
         return f'<div class="block">{k}<p class="{cls}{" done" if show_bar else ""}" style="font-size:{size}px">{spans}</p>{ex}</div>'
@@ -210,7 +210,8 @@ def render_layers(page, r: dict, site_name: str, tmp: Path, page_hi=None, site_d
             base, sun = shot(css, body, True, want_sun=True)
         else:
             base = shot(css, block(text, cls, size, extra, True, None, False), True)
-        word_layers = [crop(shot(css, block(text, cls, size, extra, False, i, False), True)) for i in range(n)]
+        # The whole line fades in together (one layer), rather than word by word.
+        word_layers = [crop(shot(css, block(text, cls, size, extra, False, "all", False), True))]
         # After the last word: the yellow bar (swept in) and then the location, each on its own.
         bar = crop(shot(css, block(text, cls, size, extra, False, -1, False, True), True)) if cls == "hook" else None
         extra_layer = crop(shot(css, block(text, cls, size, extra, False, -1, True), True)) if extra else None
@@ -498,7 +499,7 @@ def main() -> None:
                     page_hi = browser.new_page(viewport={"width": W, "height": H}, device_scale_factor=2)
                 set_timeline(r)
                 bg, layers = render_layers(page, r, site_name, tmp, page_hi, site_domain, handles)
-                cover_t = max(0.5, TIMELINE[0][2] - 0.4)  # the hook, fully shown, bar and all
+                cover_t = max(1.4, min(TIMELINE[0][2] - 0.4, BANNER_OUT - 0.2))  # banner, hook, bar and location all showing
                 frame_at(bg, layers, cover_t).save(story, "JPEG", quality=90)
                 story.with_suffix(".json").write_text(json.dumps({"cover_ms": int(cover_t * 1000)}))
                 if want_video:
