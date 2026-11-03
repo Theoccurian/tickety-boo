@@ -256,7 +256,9 @@
     },
     "blood-protein-tsp2-shows-promise-for-spotting-serious-fatty-liver": {
       "media_id": "18092557199502102",
-      "posted_at": "2026-11-03T20:37:31+00:00"
+      "posted_at": "2026-11-03T20:37:31+00:00",
+      "story_tried": true,
+      "story_id": "18047954537832503"
     }
   }
 }
