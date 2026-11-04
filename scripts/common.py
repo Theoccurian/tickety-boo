@@ -19,6 +19,7 @@ NEW_ARTICLES_FILE = DATA_DIR / "new_articles.json"
 PHOTO_UPDATES_FILE = DATA_DIR / "photo_updates.json"
 PHOTO_CHECKED_FILE = DATA_DIR / "photo_checked.json"
 FEED_STATUS_FILE = DATA_DIR / "feed_status.json"
+SCORE_UPDATES_FILE = DATA_DIR / "score_updates.json"
 
 
 def load_config() -> dict:

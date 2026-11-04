@@ -30,7 +30,7 @@ import requests
 import trafilatura
 
 from common import (
-    ARTICLES_DIR, FEED_STATUS_FILE, NEW_ARTICLES_FILE, PHOTO_CHECKED_FILE, PHOTO_UPDATES_FILE, PHOTOS_DIR, SEEN_FILE,
+    ARTICLES_DIR, FEED_STATUS_FILE, NEW_ARTICLES_FILE, PHOTO_CHECKED_FILE, SCORE_UPDATES_FILE, PHOTO_UPDATES_FILE, PHOTOS_DIR, SEEN_FILE,
     read_article,
     load_config, load_json, save_json, slugify, write_article,
 )
@@ -382,6 +382,71 @@ def prune_seen(seen: dict) -> None:
     seen["recent_headlines"] = seen.get("recent_headlines", [])[-150:]
 
 
+CATCHUP_SYSTEM = """You help a good-news website. For each published story below (headline, summary and key points,
+all already fact-checked), give:
+1. score: how genuinely good and newsworthy it is, 1-10, using this scale:
+   9-10 significant real-world impact, widely relevant, clearly uplifting; 7-8 solid good news readers would be glad
+   to learn; 4-6 mildly positive, very local or thin.
+2. reel_hook: the big opening line of a short vertical video, 4-9 words, that makes someone stop scrolling. Use ONLY
+   facts in the lines given. Plain, vivid and true: lead with the most surprising or heartening fact. No questions,
+   no "you won't believe", no exaggeration, at most one emoji at the end. If the story is about research on animals,
+   don't mention the animals."""
+
+CATCHUP_SCHEMA = {
+    "type": "object",
+    "properties": {"stories": {"type": "array", "items": {"type": "object", "properties": {
+        "id": {"type": "integer"}, "score": {"type": "integer", "minimum": 1, "maximum": 10},
+        "reel_hook": {"type": "string"}}, "required": ["id", "score", "reel_hook"]}}},
+    "required": ["stories"],
+}
+
+
+def catch_up_scores(cfg: dict, ai: "AI", skip: set[str] = frozenset()) -> None:
+    """Stories written before scores and hook lines were saved get them now, if they could still go to
+    Instagram or TikTok. Their videos then get the rating and a proper opening line."""
+    days = float(cfg.get("instagram", {}).get("max_story_age_days", 3)) + 2
+    todo = []
+    for path in sorted(ARTICLES_DIR.glob("*.md"), reverse=True):
+        if path.name in skip:
+            continue
+        a = read_article(path)
+        if not a or not a.get("title") or a.get("score"):
+            continue
+        try:
+            when = dt.datetime.fromisoformat(str(a.get("date")).replace("Z", "+00:00"))
+            if when.tzinfo is None:
+                when = when.replace(tzinfo=dt.timezone.utc)
+        except ValueError:
+            continue
+        if NOW - when <= dt.timedelta(days=days):
+            todo.append((path, a))
+    updated = []
+    if todo:
+        log(f"Catching up ratings for {len(todo)} recent story/stories…")
+        listing = "\n\n".join(
+            f"[{i}] {a['title']}\n{a.get('dek', '')}\n" + "\n".join(f"- {k}" for k in (a.get("key_points") or []))
+            for i, (_, a) in enumerate(todo))
+        try:
+            out = ai.call(ai.scoring_model, CATCHUP_SYSTEM, listing, "rate_stories", CATCHUP_SCHEMA, max_tokens=3000)
+        except RuntimeError as e:
+            log(f"  catch-up skipped: {e}")
+            out = {"stories": []}
+        for item in out.get("stories", []):
+            i = item.get("id")
+            if not isinstance(i, int) or not 0 <= i < len(todo):
+                continue
+            path, a = todo[i]
+            body = a.pop("body")
+            a.pop("file", None)
+            a["score"] = max(6, min(10, int(item["score"])))  # everything published already cleared the bar of 6
+            if not a.get("reel_hook") and item.get("reel_hook", "").strip():
+                a["reel_hook"] = item["reel_hook"].strip()
+            write_article(path, a, body)
+            updated.append(path.name)
+            log(f"  {a['score']}/10  {a['title'][:70]}")
+    save_json(SCORE_UPDATES_FILE, updated)
+
+
 def backfill_photos(cfg: dict, ai: "AI", just_written: list[str] = ()) -> None:
     """Looks for photos for published stories that don't have one yet, a couple per run.
     Each photo found is sent for approval; each story is only tried once."""
@@ -431,6 +496,7 @@ def main() -> None:
     seen.setdefault("recent_headlines", [])
     save_json(NEW_ARTICLES_FILE, [])
     save_json(PHOTO_UPDATES_FILE, [])
+    save_json(SCORE_UPDATES_FILE, [])
 
     log("Reading news feeds…")
     candidates = fetch_candidates(cfg, seen)
@@ -442,7 +508,9 @@ def main() -> None:
     if not candidates:
         prune_seen(seen)
         save_json(SEEN_FILE, seen)
-        backfill_photos(cfg, AI(cfg))
+        ai = AI(cfg)
+        backfill_photos(cfg, ai)
+        catch_up_scores(cfg, ai, {u["file"] for u in load_json(PHOTO_UPDATES_FILE, [])})
         return
 
     ai = AI(cfg)
@@ -542,6 +610,8 @@ def main() -> None:
     save_json(SEEN_FILE, seen)
     save_json(NEW_ARTICLES_FILE, written)
     backfill_photos(cfg, ai, [w["file"] for w in written])
+    # (new stories aren't on the main branch yet, and photo updates go for approval, so leave both alone)
+    catch_up_scores(cfg, ai, {w["file"] for w in written} | {u["file"] for u in load_json(PHOTO_UPDATES_FILE, [])})
     log(f"Done: {len(written)} new article(s).")
 
 

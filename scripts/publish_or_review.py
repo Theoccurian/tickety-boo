@@ -14,7 +14,7 @@ import os
 import subprocess
 import tempfile
 
-from common import ARTICLES_DIR, NEW_ARTICLES_FILE, PHOTO_UPDATES_FILE, PHOTOS_DIR, load_config, load_json
+from common import ARTICLES_DIR, NEW_ARTICLES_FILE, PHOTO_UPDATES_FILE, PHOTOS_DIR, SCORE_UPDATES_FILE, load_config, load_json
 
 LABEL = "new-article"
 PHOTO_LABEL = "new-photo"
@@ -146,9 +146,11 @@ def main() -> None:
         return
 
     # 1. Save the "already seen" list to the main branch so stories aren't picked twice.
-    if has_changes("data/seen.json", "data/photo_checked.json", "data/feed_status.json"):
-        run("git", "add", *existing("data/seen.json", "data/photo_checked.json", "data/feed_status.json"))
-        run("git", "commit", "-m", "Update list of stories already considered")
+    # Ratings and hook lines added to recent published stories go straight onto the main branch.
+    rated = [str(ARTICLES_DIR / f) for f in load_json(SCORE_UPDATES_FILE, []) if (ARTICLES_DIR / f).exists()]
+    if has_changes("data/seen.json", "data/photo_checked.json", "data/feed_status.json") or rated:
+        run("git", "add", *existing("data/seen.json", "data/photo_checked.json", "data/feed_status.json"), *rated)
+        run("git", "commit", "-m", "Update list of stories already considered" + (f"; ratings for {len(rated)} story/stories" if rated else ""))
         push_main()
 
     # 2. One pull request per article, so each can be approved or binned on its own.
