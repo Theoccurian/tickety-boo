@@ -30,9 +30,12 @@ import requests
 import trafilatura
 
 from common import (
-    ARTICLES_DIR, NEW_ARTICLES_FILE, SEEN_FILE,
+    ARTICLES_DIR, FEED_STATUS_FILE, NEW_ARTICLES_FILE, PHOTO_CHECKED_FILE, SCORE_UPDATES_FILE, PHOTO_UPDATES_FILE, PHOTOS_DIR, SEEN_FILE,
+    read_article,
     load_config, load_json, save_json, slugify, write_article,
 )
+from images import find_image, save_photo
+from tags import find_instagram_tags
 
 USER_AGENT = "Mozilla/5.0 (compatible; GoodNewsBot/1.0; +https://github.com)"
 NOW = dt.datetime.now(dt.timezone.utc)
@@ -73,13 +76,17 @@ def similar_to_any(title: str, others: list[str], threshold: float = 0.72) -> bo
 def fetch_candidates(cfg: dict, seen: dict) -> list[dict]:
     max_age = dt.timedelta(hours=cfg["publishing"].get("max_age_hours", 48))
     candidates: list[dict] = []
+    status = {}
     for feed in cfg.get("feeds", []):
         try:
             resp = requests.get(feed["url"], headers={"User-Agent": USER_AGENT}, timeout=20)
             resp.raise_for_status()
             parsed = feedparser.parse(resp.content)
+            if not parsed.entries:
+                raise ValueError("no stories in the feed (wrong address?)")
         except Exception as e:  # noqa: BLE001 — one bad feed shouldn't stop the run
             log(f"  ! Couldn't read feed '{feed['name']}': {e}")
+            status[feed["name"]] = {"ok": False, "error": str(e)[:200], "checked": NOW.replace(microsecond=0).isoformat()}
             continue
         count = 0
         for entry in parsed.entries[:40]:
@@ -107,6 +114,10 @@ def fetch_candidates(cfg: dict, seen: dict) -> list[dict]:
             })
             count += 1
         log(f"  {feed['name']}: {count} new headline(s)")
+        status[feed["name"]] = {"ok": True, "stories_in_feed": len(parsed.entries), "new": count,
+                                "checked": NOW.replace(microsecond=0).isoformat()}
+    # A record of which feeds are working, saved with the robot's other notes.
+    save_json(FEED_STATUS_FILE, status)
     return candidates
 
 
@@ -124,7 +135,7 @@ class AI:
         # Some models don't accept a forced tool call; for those we ask nicely instead.
         self.no_forced_tools: set[str] = set()
 
-    def call(self, model: str, system: str, prompt: str, tool_name: str, schema: dict, max_tokens: int = 4000) -> dict:
+    def call(self, model: str, system: str, prompt: str | list, tool_name: str, schema: dict, max_tokens: int = 4000) -> dict:
         """Ask the model to fill in a structured form (a 'tool'), so we always get clean data back."""
         last_err = None
         attempt = 0
@@ -195,7 +206,7 @@ def score_candidates(ai: AI, cfg: dict, candidates: list[dict], recent: list[str
                         "id": {"type": "integer"},
                         "qualifies": {"type": "boolean"},
                         "score": {"type": "integer", "minimum": 1, "maximum": 10},
-                        "category": {"type": "string", "enum": cats},
+                        "category": {"type": "string", "enum": cats, "description": category_guide(cfg)},
                         "duplicate": {"type": "boolean"},
                     },
                     "required": ["id", "qualifies", "score", "category", "duplicate"],
@@ -241,19 +252,28 @@ Strict rules:
 1. Use ONLY facts found in the SOURCE TEXT. Never add names, numbers, dates, places, quotes or claims that are not in it. If unsure, leave it out.
 2. Write entirely in your own words with your own sentence structure. Never copy or lightly reword sentences from the source.
 3. At most ONE direct quote, under 15 words, copied exactly from the source and attributed to the person who said it.
-4. Tone: warm, clear and factual. No hype, no exclamation marks, no clichés ("heartwarming", "restores faith in humanity", "game-changer").
+4. Tone: warm, clear and factual, with a light English accent: the voice of a good-humoured British newspaper. Where it fits naturally, use classic English phrasing and adjectives and fond, characterful adjectives for the people and creatures in the story: "dashing young calves", "a good sport", "a plucky little charity", "a sprightly 90-year-old", "rather good news", "no mean feat", "a cracking result", "splendid", "chuffed", "a welcome boost", "on the up". Use one or two such touches per article, never more, and never in the headline, in quotes, in key points or in place of a precise fact. Understated rather than twee: no "jolly hockey sticks", no "guv'nor", no puns on the site name. No hype, no exclamation marks, no clichés ("heartwarming", "restores faith in humanity", "game-changer").
 5. Body: 250-450 words in short paragraphs (2-4 sentences each), opening with the key news, not background. No headings except one final section headed exactly "## Why it matters": one paragraph explaining the significance using the source and widely established general knowledge only (no new statistics).
 6. Headline: specific and accurate, sentence case, under 90 characters, no clickbait, no question headlines.
 7. Standfirst (dek): one sentence of 15-30 words summarising the story.
 8. Location: the country or region where it happened (e.g. "Kenya", "Scotland, UK"), or "Global".
 9. Do not mention the source outlet in the body; the site credits it separately.
 10. Key points: exactly 3 short, self-contained factual statements (each under 20 words) summarising who, what, where and the outcome, so a reader or search engine can understand the story at a glance. Same facts rules apply.
-11. Instagram caption: 2-4 short, friendly sentences in your own words telling the story (same facts rules apply), at most one fitting emoji, then a blank line, then "Full story: link in bio", then a blank line, then 3-5 relevant hashtags plus {hashtags}.
+11. Instagram caption: start with one short line naming the key subject and place in plain, searchable words, the way someone would search for it (e.g. "Irrawaddy dolphins, Mekong River, Cambodia"). Then 2-4 short, friendly sentences in your own words telling the story (same facts rules apply), with the same light English touch (one phrase at most), at most one fitting emoji, then a blank line, then "Full story: link in bio", then a blank line, then 3-5 specific, relevant hashtags plus {hashtags}.
+12. Video hook (reel_hook): the big opening line of a short vertical video, 4-9 words, that makes someone stop scrolling. Plain, vivid and true to the facts: lead with the most surprising or heartening fact (e.g. "Six baby dolphins just beat the odds", "A wrong turn saved a family from a fire"). No questions, no "you won't believe", no exaggeration, at most one emoji at the end.
+13. Animal research: if the findings come from experiments on animals (e.g. mice, rats, monkeys), do not mention the animals or what was done to them anywhere (body, headline, standfirst, key points, caption, video hook). Write purely about the science and the breakthrough. But stay honest about the stage: say clearly, once in the body and in the key points, that this is early laboratory or preclinical research that has not yet been tested in people (e.g. "in early laboratory studies", "in preclinical research, ahead of human trials"). Never imply a treatment works in humans when it has only been shown in the lab.
 
 Set usable=false (and leave the other fields brief) if the source text is too thin to write 250 accurate words, is not actually good news, is promotional/opinion, or describes something that hasn't happened yet."""
 
 
-def article_schema(cats: list[str]) -> dict:
+def category_guide(cfg: dict) -> str:
+    """Tells the AI what each section is for, so stories land in the right one."""
+    return "The section that best fits. " + "; ".join(
+        f"{c['slug']}: {c.get('guide') or c.get('description', '')}" for c in cfg["categories"]
+    )
+
+
+def article_schema(cats: list[str], guide: str = "") -> dict:
     return {
         "type": "object",
         "properties": {
@@ -261,20 +281,22 @@ def article_schema(cats: list[str]) -> dict:
             "reason_if_unusable": {"type": "string"},
             "headline": {"type": "string"},
             "dek": {"type": "string"},
-            "category": {"type": "string", "enum": cats},
+            "category": {"type": "string", "enum": cats, **({"description": guide} if guide else {})},
             "location": {"type": "string"},
             "tags": {"type": "array", "items": {"type": "string"}, "maxItems": 5},
             "body_markdown": {"type": "string"},
             "instagram_caption": {"type": "string"},
+            "reel_hook": {"type": "string", "description": "Rule 12: the big opening line of the short video"},
             "key_points": {"type": "array", "items": {"type": "string"}, "minItems": 3, "maxItems": 3},
         },
-        "required": ["usable", "headline", "dek", "category", "location", "tags", "body_markdown", "instagram_caption", "key_points"],
+        "required": ["usable", "headline", "dek", "category", "location", "tags", "body_markdown", "instagram_caption", "key_points", "reel_hook"],
     }
 
 
 VERIFY_SYSTEM = """You are a strict fact-checker. Compare the ARTICLE with the SOURCE TEXT it was written from.
 List every specific claim in the article (names, numbers, dates, places, organisations, quotes, outcomes) that is NOT supported by the source, or that misrepresents it.
 Quotes must appear word-for-word in the source. General background that is common knowledge is acceptable.
+Leaving out that a study used animals is deliberate and is NOT a problem, as long as the article makes clear the research is at an early laboratory/preclinical stage and does not imply results in humans. Flag it if the article implies human results that the source doesn't support.
 Set accurate=true only if there are no problems."""
 
 VERIFY_SCHEMA = {
@@ -314,14 +336,15 @@ def write_one(ai: AI, cfg: dict, cand: dict, source_text: str) -> dict | None:
         f"Original headline: {cand['title']}\n\n"
         f"SOURCE TEXT:\n<<<\n{source_text}\n>>>"
     )
-    draft = ai.call(ai.writing_model, system, prompt, "submit_article", article_schema(cats), max_tokens=3000)
+    draft = ai.call(ai.writing_model, system, prompt, "submit_article", article_schema(cats, category_guide(cfg)), max_tokens=3000)
     if not draft.get("usable"):
         log(f"    skipped by writer: {draft.get('reason_if_unusable', 'not usable')}")
         return None
 
     for attempt in range(2):
         points = "\n".join(f"- {p}" for p in draft.get("key_points", []))
-        full = f"{draft['headline']}\n{draft['dek']}\nKEY POINTS:\n{points}\n\n{draft['body_markdown']}\n\nINSTAGRAM CAPTION:\n{draft.get('instagram_caption', '')}"
+        full = (f"{draft['headline']}\n{draft['dek']}\nKEY POINTS:\n{points}\n\n{draft['body_markdown']}\n\n"
+                f"INSTAGRAM CAPTION:\n{draft.get('instagram_caption', '')}\n\nVIDEO HOOK LINE:\n{draft.get('reel_hook', '')}")
         problems = []
         copied = copied_passages(full, source_text)
         if copied:
@@ -345,7 +368,7 @@ def write_one(ai: AI, cfg: dict, cand: dict, source_text: str) -> dict | None:
             + "Problems that must be fixed:\n" + "\n".join(f"- {p}" for p in problems)
             + "\n\nRewrite the whole article, fixing every problem and following all rules."
         )
-        draft = ai.call(ai.writing_model, system, fix_prompt, "submit_article", article_schema(cats), max_tokens=3000)
+        draft = ai.call(ai.writing_model, system, fix_prompt, "submit_article", article_schema(cats, category_guide(cfg)), max_tokens=3000)
         if not draft.get("usable"):
             return None
     return None
@@ -359,6 +382,108 @@ def prune_seen(seen: dict) -> None:
     seen["recent_headlines"] = seen.get("recent_headlines", [])[-150:]
 
 
+CATCHUP_SYSTEM = """You help a good-news website. For each published story below (headline, summary and key points,
+all already fact-checked), give:
+1. score: how genuinely good and newsworthy it is, 1-10, using this scale:
+   9-10 significant real-world impact, widely relevant, clearly uplifting; 7-8 solid good news readers would be glad
+   to learn; 4-6 mildly positive, very local or thin.
+2. reel_hook: the big opening line of a short vertical video, 4-9 words, that makes someone stop scrolling. Use ONLY
+   facts in the lines given. Plain, vivid and true: lead with the most surprising or heartening fact. No questions,
+   no "you won't believe", no exaggeration, at most one emoji at the end. If the story is about research on animals,
+   don't mention the animals."""
+
+CATCHUP_SCHEMA = {
+    "type": "object",
+    "properties": {"stories": {"type": "array", "items": {"type": "object", "properties": {
+        "id": {"type": "integer"}, "score": {"type": "integer", "minimum": 1, "maximum": 10},
+        "reel_hook": {"type": "string"}}, "required": ["id", "score", "reel_hook"]}}},
+    "required": ["stories"],
+}
+
+
+def catch_up_scores(cfg: dict, ai: "AI", skip: set[str] = frozenset()) -> None:
+    """Stories written before scores and hook lines were saved get them now, if they could still go to
+    Instagram or TikTok. Their videos then get the rating and a proper opening line."""
+    days = float(cfg.get("instagram", {}).get("max_story_age_days", 3)) + 2
+    todo = []
+    for path in sorted(ARTICLES_DIR.glob("*.md"), reverse=True):
+        if path.name in skip:
+            continue
+        a = read_article(path)
+        if not a or not a.get("title") or a.get("score"):
+            continue
+        try:
+            when = dt.datetime.fromisoformat(str(a.get("date")).replace("Z", "+00:00"))
+            if when.tzinfo is None:
+                when = when.replace(tzinfo=dt.timezone.utc)
+        except ValueError:
+            continue
+        if NOW - when <= dt.timedelta(days=days):
+            todo.append((path, a))
+    updated = []
+    if todo:
+        log(f"Catching up ratings for {len(todo)} recent story/stories…")
+        listing = "\n\n".join(
+            f"[{i}] {a['title']}\n{a.get('dek', '')}\n" + "\n".join(f"- {k}" for k in (a.get("key_points") or []))
+            for i, (_, a) in enumerate(todo))
+        try:
+            out = ai.call(ai.scoring_model, CATCHUP_SYSTEM, listing, "rate_stories", CATCHUP_SCHEMA, max_tokens=3000)
+        except RuntimeError as e:
+            log(f"  catch-up skipped: {e}")
+            out = {"stories": []}
+        for item in out.get("stories", []):
+            i = item.get("id")
+            if not isinstance(i, int) or not 0 <= i < len(todo):
+                continue
+            path, a = todo[i]
+            body = a.pop("body")
+            a.pop("file", None)
+            a["score"] = max(6, min(10, int(item["score"])))  # everything published already cleared the bar of 6
+            if not a.get("reel_hook") and item.get("reel_hook", "").strip():
+                a["reel_hook"] = item["reel_hook"].strip()
+            write_article(path, a, body)
+            updated.append(path.name)
+            log(f"  {a['score']}/10  {a['title'][:70]}")
+    save_json(SCORE_UPDATES_FILE, updated)
+
+
+def backfill_photos(cfg: dict, ai: "AI", just_written: list[str] = ()) -> None:
+    """Looks for photos for published stories that don't have one yet, a couple per run.
+    Each photo found is sent for approval; each story is only tried once."""
+    img_cfg = cfg.get("images", {})
+    per_run = int(img_cfg.get("backfill_per_run", 2))
+    if not img_cfg.get("enabled", True) or per_run <= 0:
+        return
+    checked = set(load_json(PHOTO_CHECKED_FILE, [])) | set(just_written)  # new stories already had their try
+    todo = []
+    for path in sorted(ARTICLES_DIR.glob("*.md"), reverse=True):
+        if path.name in checked:
+            continue
+        a = read_article(path)
+        if a and a.get("title") and not a.get("image"):
+            todo.append((path, a))
+    if not todo:
+        save_json(PHOTO_CHECKED_FILE, sorted(checked))
+        return
+    updates = []
+    log(f"Looking for photos for {min(per_run, len(todo))} older story/stories…")
+    for path, a in todo[:per_run]:
+        log(f"  {a['title']}")
+        checked.add(path.name)
+        body = a.pop("body")
+        a.pop("file", None)
+        image = find_image(ai, a["title"], a.get("dek", ""), body, log=log)
+        size = image and save_photo(image["url"], PHOTOS_DIR / f"{path.stem}.jpg")
+        if image and size:
+            image.update(file=f"{path.stem}.jpg", width=size[0], height=size[1])
+            a["image"] = image
+            write_article(path, a, body)
+            updates.append({"file": path.name, "title": a["title"], "image": image})
+            log(f"    photo: {image['caption']} ({image['library']})")
+    save_json(PHOTO_CHECKED_FILE, sorted(checked))
+    save_json(PHOTO_UPDATES_FILE, updates)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--list", action="store_true", help="only list candidate headlines (no AI, nothing saved)")
@@ -370,6 +495,8 @@ def main() -> None:
     seen.setdefault("urls", {})
     seen.setdefault("recent_headlines", [])
     save_json(NEW_ARTICLES_FILE, [])
+    save_json(PHOTO_UPDATES_FILE, [])
+    save_json(SCORE_UPDATES_FILE, [])
 
     log("Reading news feeds…")
     candidates = fetch_candidates(cfg, seen)
@@ -381,6 +508,9 @@ def main() -> None:
     if not candidates:
         prune_seen(seen)
         save_json(SEEN_FILE, seen)
+        ai = AI(cfg)
+        backfill_photos(cfg, ai)
+        catch_up_scores(cfg, ai, {u["file"] for u in load_json(PHOTO_UPDATES_FILE, [])})
         return
 
     ai = AI(cfg)
@@ -452,7 +582,24 @@ def main() -> None:
             "cover_seed": random.randint(1, 10**6),
             "key_points": [p.strip() for p in art.get("key_points", []) if p.strip()][:3],
             "instagram_caption": art.get("instagram_caption", "").strip(),
+            "reel_hook": art.get("reel_hook", "").strip(),
+            "score": int(cand.get("score") or 0),  # how good the robot rated it (1-10); best ones go to Instagram first
         }
+        if cfg.get("images", {}).get("enabled", True):
+            log("    looking for a photo")
+            image = find_image(ai, meta["title"], meta["dek"], art["body_markdown"], log=log)
+            size = image and save_photo(image["url"], PHOTOS_DIR / f"{path.stem}.jpg")
+            if image and size:
+                image.update(file=f"{path.stem}.jpg", width=size[0], height=size[1])
+                meta["image"] = image
+                log(f"    photo: {image['caption']} ({image['library']})")
+            elif image:
+                log("    no photo: couldn't download the chosen one")
+        if cfg.get("instagram", {}).get("mention_accounts", True):
+            try:
+                meta["instagram_tags"] = find_instagram_tags(ai, meta["title"], meta["dek"], cand["url"], log=log)
+            except Exception as e:  # noqa: BLE001 - mentions are a nice-to-have
+                log(f"    tags skipped: {e}")
         write_article(path, meta, art["body_markdown"])
         used_sources.add(cand["source"])
         seen["recent_headlines"] += [meta["title"], cand["title"]]
@@ -462,6 +609,9 @@ def main() -> None:
     prune_seen(seen)
     save_json(SEEN_FILE, seen)
     save_json(NEW_ARTICLES_FILE, written)
+    backfill_photos(cfg, ai, [w["file"] for w in written])
+    # (new stories aren't on the main branch yet, and photo updates go for approval, so leave both alone)
+    catch_up_scores(cfg, ai, {w["file"] for w in written} | {u["file"] for u in load_json(PHOTO_UPDATES_FILE, [])})
     log(f"Done: {len(written)} new article(s).")
 
 
