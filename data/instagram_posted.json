@@ -288,7 +288,9 @@
     },
     "bleached-coral-recovers-after-touching-a-healthy-clone-stanford-lab": {
       "media_id": "18119014897797439",
-      "posted_at": "2026-11-04T15:37:20+00:00"
+      "posted_at": "2026-11-04T15:37:20+00:00",
+      "story_tried": true,
+      "story_id": "18075919025774054"
     }
   }
 }
