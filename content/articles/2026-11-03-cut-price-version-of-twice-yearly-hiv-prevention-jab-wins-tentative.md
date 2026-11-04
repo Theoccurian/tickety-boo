@@ -28,6 +28,7 @@ instagram_caption: |-
   #HIVPrevention #Lenacapavir #GlobalHealth #Unitaid #TicketyBooNews #GoodNews
 reel_hook: A twice-yearly HIV shot will cost $40
 instagram_tags: []
+score: 8
 ---
 
 A cut-price version of lenacapavir, the HIV prevention injection needed only twice a year, has received tentative approval from the US Food and Drug Administration. The decision takes the drug a step nearer to people in low-income countries. Dr. Reddy's Laboratories, the Indian company making the generic, and the global health initiative Unitaid shared the news on Monday.

@@ -40,6 +40,7 @@ image:
   file: 2026-11-01-support-dog-wakes-deaf-owner-and-helps-save-husband-after-fall-down.jpg
   width: 1600
   height: 2133
+score: 6
 ---
 
 A support dog in Staffordshire has been credited with saving a man's life after she woke her deaf owner in the small hours to raise the alarm. Storm, a trained service dog, leapt onto the bed shortly after midnight, and her owner's husband was soon found badly hurt at the foot of the stairs.

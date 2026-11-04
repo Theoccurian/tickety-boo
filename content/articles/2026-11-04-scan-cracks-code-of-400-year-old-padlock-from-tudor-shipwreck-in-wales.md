@@ -41,6 +41,7 @@ image:
   width: 1600
   height: 1200
 instagram_tags: []
+score: 6
 ---
 
 A brass padlock more than 400 years old has finally given up its secret. Experts have worked out its four-letter code with the help of modern scanning technology, solving a puzzle that had defeated its finder for around two decades.

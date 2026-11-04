@@ -42,6 +42,7 @@ image:
   width: 1600
   height: 1064
 instagram_tags: []
+score: 6
 ---
 
 A third volunteer has been given an experimental brain implant intended to create a form of artificial vision for people with total blindness. The operation took place at Rush University Medical Center and, according to the team, went successfully.

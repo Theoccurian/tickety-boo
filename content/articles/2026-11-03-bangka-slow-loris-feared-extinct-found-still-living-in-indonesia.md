@@ -44,6 +44,7 @@ image:
 instagram_tags:
 - hausdesmeeres
 - alobi_foundation
+score: 8
 ---
 
 A small primate that conservationists feared had vanished for good is still living on the Indonesian island of Bangka. A new study in the journal Spixiana shows that the Bangka slow loris survives in the wild, almost a century after scientists last documented it.

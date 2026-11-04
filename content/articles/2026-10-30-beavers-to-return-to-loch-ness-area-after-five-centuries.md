@@ -40,6 +40,7 @@ image:
   file: 2026-10-30-beavers-to-return-to-loch-ness-area-after-five-centuries.jpg
   width: 900
   height: 600
+score: 6
 ---
 
 Beavers are heading back to the Loch Ness area, five centuries after they were last recorded there. NatureScot has licensed a three-year programme that will see as many as 15 of the animals freed in the catchment of the River Ness, at locations chosen in advance.

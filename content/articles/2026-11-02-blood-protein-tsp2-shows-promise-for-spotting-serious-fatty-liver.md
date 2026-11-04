@@ -41,6 +41,7 @@ image:
   file: 2026-11-02-blood-protein-tsp2-shows-promise-for-spotting-serious-fatty-liver.jpg
   width: 1280
   height: 857
+score: 6
 ---
 
 A single protein in the blood has emerged as one of the most promising ways to spot serious scarring of the liver in people with fatty liver disease. The finding comes from a large international study that put 30 different tests side by side.

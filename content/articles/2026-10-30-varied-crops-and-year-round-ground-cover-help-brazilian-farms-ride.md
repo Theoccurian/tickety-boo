@@ -40,6 +40,7 @@ image:
   file: 2026-10-30-varied-crops-and-year-round-ground-cover-help-brazilian-farms-ride.jpg
   width: 1280
   height: 855
+score: 6
 ---
 
 Farms in southern Brazil that mixed up their crop rotations and kept the ground covered with living plants all year produced bigger and more dependable harvests than farms using simpler methods, even when drought and flood struck in turn.

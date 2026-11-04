@@ -40,6 +40,7 @@ image:
   file: 2026-11-02-new-early-warning-system-will-help-aes-in-england-spot-deteriorating.jpg
   width: 1280
   height: 853
+score: 6
 ---
 
 Hospital emergency departments in England are rolling out a national early warning system to help staff spot sick children whose condition is worsening fast. The National Paediatric Early Warning System, known as PEWS, arrives ahead of winter, when the NHS is under its heaviest pressure.

@@ -41,6 +41,7 @@ image:
   width: 1036
   height: 797
 instagram_tags: []
+score: 6
 ---
 
 A happy accident in a Stanford laboratory has shown that bleached coral can be nursed back to health by a healthy neighbour. Two coral fragments toppled over in a tank and ended up touching. Within days, the bleached one had begun to recover.

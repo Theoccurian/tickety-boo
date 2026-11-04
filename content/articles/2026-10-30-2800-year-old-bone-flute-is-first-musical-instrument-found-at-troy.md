@@ -40,6 +40,7 @@ image:
   file: 2026-10-30-2800-year-old-bone-flute-is-first-musical-instrument-found-at-troy.jpg
   width: 1600
   height: 743
+score: 6
 ---
 
 A bone flute roughly 2,800 years old has been unearthed at Troy, and it is the first musical instrument ever recovered there. Turkey's culture and tourism minister, Mehmet Nuri Ersoy, announced the discovery on social media, describing it as the first direct archaeological proof of music in Trojan life.

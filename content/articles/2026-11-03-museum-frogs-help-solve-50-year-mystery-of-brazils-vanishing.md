@@ -43,6 +43,7 @@ image:
   height: 2133
 instagram_tags:
 - smithsonianzoo
+score: 6
 ---
 
 Scientists believe they have solved a puzzle that has nagged at amphibian researchers for almost 50 years: why frogs vanished from part of Brazil's Atlantic Forest. The likely culprit is chytrid, a fungal disease, and the rather good news is that most species at the site have since bounced back.

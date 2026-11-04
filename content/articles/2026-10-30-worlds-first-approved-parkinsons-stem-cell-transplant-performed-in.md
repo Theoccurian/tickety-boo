@@ -41,6 +41,7 @@ image:
   file: 2026-10-30-worlds-first-approved-parkinsons-stem-cell-transplant-performed-in.jpg
   width: 1600
   height: 1200
+score: 8
 ---
 
 A patient in Japan has become the first person anywhere to receive an officially approved stem-cell treatment for Parkinson's disease. The drugmaker behind it, Sumitomo Pharma, revealed the news on Friday in its earnings press release.

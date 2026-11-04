@@ -42,6 +42,7 @@ image:
   height: 1200
 instagram_tags:
 - guinnessworldrecords
+score: 7
 ---
 
 Xie Junwu, a wheelchair user from Nanchang, has set up what is almost certainly China's first wheelchair skateboarding training centre, where he helps others grow more confident in handling their chairs.

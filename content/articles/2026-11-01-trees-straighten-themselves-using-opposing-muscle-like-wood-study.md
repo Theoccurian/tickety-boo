@@ -41,6 +41,7 @@ image:
   file: 2026-11-01-trees-straighten-themselves-using-opposing-muscle-like-wood-study.jpg
   width: 1600
   height: 1067
+score: 6
 ---
 
 Trees can correct a leaning trunk by growing a special kind of wood on opposite sides of the stem, with each side pulling against the other much as paired muscles do. The finding, from researchers working with the research institute INRAE, answers a question that has lingered for years: how does a plant turn a sense of its own shape into movement?

@@ -41,6 +41,7 @@ image:
   width: 1600
   height: 1600
 instagram_tags: []
+score: 8
 ---
 
 A modelling study covering 193 countries suggests that swapping ordinary salt for a potassium-enriched version could spare close to 3 million lives every year. It could also stop around 10 million fresh cases of cardiovascular and kidney disease annually. The work comes from The George Institute for Global Health and is published in Nature Health.

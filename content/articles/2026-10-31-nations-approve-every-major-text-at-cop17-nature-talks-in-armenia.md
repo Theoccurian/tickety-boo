@@ -40,6 +40,7 @@ image:
   file: 2026-10-31-nations-approve-every-major-text-at-cop17-nature-talks-in-armenia.jpg
   width: 1600
   height: 1067
+score: 6
 ---
 
 Governments at the COP17 biodiversity conference in Yerevan, Armenia, have approved every major negotiating text. They have also completed the first formal stocktake of progress on the world's nature deal.

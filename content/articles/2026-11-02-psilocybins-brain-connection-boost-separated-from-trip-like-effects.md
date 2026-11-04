@@ -40,6 +40,7 @@ image:
   file: 2026-11-02-psilocybins-brain-connection-boost-separated-from-trip-like-effects.jpg
   width: 1600
   height: 1600
+score: 6
 ---
 
 Scientists in California have shown that the brain-rewiring benefits of psilocybin can be pulled apart from its hallucinogenic effects. It is an early but rather encouraging step towards possible treatments for depression and PTSD that would not involve a psychedelic trip.

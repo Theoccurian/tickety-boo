@@ -40,6 +40,7 @@ image:
   file: 2026-10-30-blocking-one-enzyme-extended-the-lives-of-ageing-mice-by-17-per-cent.jpg
   width: 1280
   height: 834
+score: 6
 ---
 
 Researchers in China have found that blocking a single enzyme lengthened the lives of ageing mice by 17 per cent, and left the animals in better shape for their later years.

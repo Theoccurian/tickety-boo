@@ -40,6 +40,7 @@ image:
   file: 2026-11-01-scan-based-index-helps-predict-which-breast-cancer-patients-will.jpg
   width: 1280
   height: 853
+score: 6
 ---
 
 Researchers in Hong Kong have developed a scan-based score that can indicate, before treatment begins, which breast cancer patients are likely to respond to a type of drug known as an AKT inhibitor. The tool, called the Tumour Heterogeneity Index (THI), comes from a team at The Hong Kong Polytechnic University (PolyU).

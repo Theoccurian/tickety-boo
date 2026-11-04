@@ -43,6 +43,7 @@ image:
   height: 613
 instagram_tags:
 - qubelfast
+score: 6
 ---
 
 An international team led by Queen's University Belfast has tracked down a group of asteroids that astronomers have been hunting for decades. Using data from the Vera C. Rubin Observatory in Chile, the researchers identified two asteroids, plus one further candidate, as lasting members of Neptune's trailing Trojan population.

@@ -41,6 +41,7 @@ image:
   width: 1600
   height: 1070
 instagram_tags: []
+score: 7
 ---
 
 Grey wolves are back in Western and Central Europe in force. Their numbers climbed by a reported 58% between 2012 and 2022, to around 21,500 animals, after strict protection measures took hold across the region.

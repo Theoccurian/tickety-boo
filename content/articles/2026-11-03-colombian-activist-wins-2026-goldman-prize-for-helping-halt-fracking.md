@@ -43,6 +43,7 @@ image:
   height: 660
 instagram_tags:
 - goldmanprize
+score: 7
 ---
 
 A university student who began her campaign by knocking on neighbours' doors has won the 2026 Goldman Environmental Prize. Yuvelis Morales Blanco, now 24, was honoured for South and Central America, seven years after she first set out to keep fracking away from Colombia's Magdalena River.

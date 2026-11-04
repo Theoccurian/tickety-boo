@@ -41,6 +41,7 @@ image:
   file: 2026-10-31-hell-chicken-fossil-reveals-the-first-known-fruit-eating-dinosaur.jpg
   width: 1350
   height: 1000
+score: 7
 ---
 
 Palaeontologists have described a new dinosaur, Infernogallus jamesi, and it is the first known to have specialised in eating fruit. A small oviraptorosaur, it had chewing muscles arranged for mashing soft food, which is not what anyone expects from a Cretaceous dinosaur.

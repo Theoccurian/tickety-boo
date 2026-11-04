@@ -41,6 +41,7 @@ image:
   width: 1600
   height: 1200
 instagram_tags: []
+score: 6
 ---
 
 Trevor Bergman has now given blood at every one of Australia's 85 donation centres, completing a tour that took in 545 donations. It is no mean feat, and his blood has helped patients in virtually every corner of the country.

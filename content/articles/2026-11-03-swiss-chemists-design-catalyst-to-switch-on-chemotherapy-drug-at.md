@@ -42,6 +42,7 @@ image:
   width: 1280
   height: 847
 instagram_tags: []
+score: 6
 ---
 
 Chemists at the University of Basel have developed a way to activate a chemotherapy drug only when it reaches cancer cells, a step towards treatment that leaves healthy tissue alone. The work comes from the group of Dr Thomas Ward, based in the university's Department of Chemistry and the Swiss Nanoscience Institute.
