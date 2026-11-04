@@ -1,0 +1,88 @@
+name: Install update
+
+# Drop an update .zip onto the repo's main page and commit: this unpacks it into the right folders,
+# deletes the zip, tidies up stray copies, and republishes the website.
+on:
+  push:
+    branches: [main]
+    paths: ["**.zip"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: install-update
+  cancel-in-progress: false
+
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Unpack the update into the right places
+        env:
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+        run: |
+          # Only the zip(s) uploaded in this push get installed; older zips lying around are just removed.
+          if [ -n "$BEFORE" ] && git cat-file -e "$BEFORE" 2>/dev/null; then
+            git diff --name-only --diff-filter=AM "$BEFORE" "$AFTER" -- '*.zip' > /tmp/new_zips.txt
+          else
+            git log -1 --name-only --diff-filter=AM --format= -- '*.zip' > /tmp/new_zips.txt
+          fi
+          echo "New update file(s):"; cat /tmp/new_zips.txt
+          python3 - <<'PY'
+          import os, re, shutil, zipfile
+          from pathlib import Path
+
+          root = Path(".").resolve()
+          ALLOWED = re.compile(r"^(scripts/[^/]+\.py|templates/[^/]+\.html|static/.+|config\.yaml|requirements\.txt)$")
+          new = {(root / l.strip()).resolve() for l in open("/tmp/new_zips.txt") if l.strip()}
+          installed, zips = [], [p for p in root.rglob("*.zip") if ".git" not in p.parts]
+          for z in zips:
+              if z.resolve() not in new:
+                  print(f"Removed old zip without installing it: {z.relative_to(root)}")
+                  z.unlink()
+                  continue
+              with zipfile.ZipFile(z) as zf:
+                  names = [n for n in zf.namelist() if not n.endswith("/") and "__MACOSX" not in n and not n.split("/")[-1].startswith(".")]
+                  for n in names:
+                      parts = n.split("/")
+                      # Accept files at the top level, or inside one wrapping folder (e.g. "tbn-update/scripts/x.py")
+                      for cut in (0, 1):
+                          rel = "/".join(parts[cut:])
+                          if ALLOWED.match(rel) and ".." not in parts:
+                              target = root / rel
+                              target.parent.mkdir(parents=True, exist_ok=True)
+                              target.write_bytes(zf.read(n))
+                              installed.append(rel)
+                              break
+              print(f"Unpacked {z.name}")
+              z.unlink()
+
+          # Tidy up stray copies from earlier uploads
+          for d in root.iterdir():
+              if d.is_dir() and (re.match(r"^scripts \d+$", d.name) or d.name.startswith("tbn-") or d.name.startswith("upload")):
+                  shutil.rmtree(d); print(f"Removed stray folder: {d.name}")
+              elif d.is_file() and d.suffix == ".py":
+                  d.unlink(); print(f"Removed stray file: {d.name}")
+          print("Installed:", ", ".join(sorted(set(installed))) or "nothing")
+          PY
+
+      - name: Save and republish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name "good-news-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then echo "Nothing to change."; exit 0; fi
+          git commit -m "Install update"
+          git push origin HEAD:main
+          gh workflow run deploy.yml --ref main
