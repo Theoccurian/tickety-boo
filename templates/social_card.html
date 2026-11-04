@@ -27,6 +27,12 @@ body {
 .ig { display: grid; grid-template-rows: 640px 1fr; height: 100%; }
 .ig .panel { display: flex; flex-direction: column; padding: 56px 72px 60px; }
 .ig .kicker { font-size: 34px; margin-bottom: 22px; }
+.kickrow { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
+.tbr { display: inline-flex; align-items: center; gap: 12px; padding: 8px 18px 8px 12px; border-radius: 999px; background: #FFF4D6;
+  border: 2px solid #F2C14E; color: #132036; font-weight: 700; font-size: 26px; white-space: nowrap; }
+.tbr-suns { display: inline-flex; gap: 3px; }
+.tbr-sun { width: 26px; height: 26px; fill: #F2AE1C; stroke: #F2AE1C; stroke-width: 2; }
+.tbr-sun.off { opacity: .25; }
 .ig .title { font-size: {{ ig_size }}px; }
 .ig .dek { font-family: "Source Serif 4", Georgia, serif; font-size: 34px; line-height: 1.42; color: #55627A; margin-top: 26px; max-width: 34ch; }
 .ig .foot { margin-top: auto; font-size: 30px; }
@@ -73,7 +79,7 @@ body {
 <div class="ig">
   <div class="art">{% if card_photo %}<img class="ph" src="{{ card_photo }}" alt=""><span class="credit">Photo: {{ a.photo.credit }}{% if a.photo.library != a.photo.credit %} / {{ a.photo.library }}{% endif %}{% if a.photo.kind == "generic" %} (illustrative){% endif %}</span>{% else %}{{ cover(a.cat.colour, a.cat.icon, a.seed, 1080, 640) }}{% endif %}</div>
   <div class="panel">
-    <p class="kicker">{{ icon(a.cat.icon, 34) }}{{ a.cat.name }}</p>
+    <div class="kickrow"><p class="kicker">{{ icon(a.cat.icon, 34) }}{{ a.cat.name }}</p>{% if a.rating %}{{ rating_badge(a.rating, "tbr") }}{% endif %}</div>
     <h1 class="title">{{ a.title }}</h1>
     {% if a.dek %}<p class="dek"{% if ig_size < 66 %} style="font-size: 30px"{% endif %}>{{ a.dek }}</p>{% endif %}
     <div class="foot">{{ brand }}<span class="where">{{ a.location }}</span></div>

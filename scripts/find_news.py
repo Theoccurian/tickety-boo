@@ -515,6 +515,7 @@ def main() -> None:
             "key_points": [p.strip() for p in art.get("key_points", []) if p.strip()][:3],
             "instagram_caption": art.get("instagram_caption", "").strip(),
             "reel_hook": art.get("reel_hook", "").strip(),
+            "score": int(cand.get("score") or 0),  # how good the robot rated it (1-10); best ones go to Instagram first
         }
         if cfg.get("images", {}).get("enabled", True):
             log("    looking for a photo")

@@ -25,6 +25,7 @@
     <h1 class="story__title">{{ a.title }}</h1>
     <p class="story__dek">{{ a.dek }}</p>
     <p class="meta"><span>{{ a.location }}</span><time datetime="{{ a.date.isoformat() }}">{{ a.date_nice }}</time><span>{{ a.minutes }} min read</span></p>
+    {% if a.rating %}<p class="story__rating"><a href="{{ url('/about/') }}#rating">{{ rating_badge(a.rating) }}</a></p>{% endif %}
   </header>
   <figure class="story__art wrap-wide">
     {{ photo(a, eager=true) }}

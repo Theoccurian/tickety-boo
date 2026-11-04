@@ -371,8 +371,14 @@ def main() -> None:
         if slug in posted["posts"] or NOW - published > max_age:
             continue
         queue.append((published, slug, a))
-    # Newest first: the freshest news goes out, and if there's more than fits, older stories drop off.
-    queue.sort(key=lambda x: x[0], reverse=not ig.get("oldest_first", False))
+    # Best stories first: each story's score (1-10), minus a little for every day it's been waiting,
+    # so a great story beats an ordinary one, but fresh news still wins over stale. Ties go to the newest.
+    def priority(item):
+        published, _, a = item
+        score = float(a.get("score") or 6.5)  # stories from before scores were saved count as average
+        age_days = (NOW - published).total_seconds() / 86400
+        return (score - float(ig.get("age_penalty_per_day", 0.75)) * age_days, published)
+    queue.sort(key=priority, reverse=True)
 
     pending_reels = [k for k, v in posted["posts"].items() if not v.get("reel_id") and not v.get("reel_skipped") and v.get("reel_attempts", 0) < 3]
     if not queue and not args.check and not (pending_reels and ig.get("reels", True)):

@@ -306,3 +306,13 @@ p { margin: 0; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* Tickety-Boo rating */
+.story__rating { margin-top: .7rem; }
+.story__rating a { text-decoration: none; }
+.tbr { display: inline-flex; align-items: center; gap: .55rem; padding: .3rem .8rem .3rem .55rem; border-radius: 999px;
+  background: color-mix(in srgb, var(--sun) 16%, var(--surface)); border: 1px solid color-mix(in srgb, var(--sun) 45%, transparent);
+  color: var(--ink); font-weight: 650; font-size: .9rem; }
+.tbr-suns { display: inline-flex; gap: .12rem; }
+.tbr-sun { width: 1.05rem; height: 1.05rem; fill: var(--sun); stroke: var(--sun); stroke-width: 2; }
+.tbr-sun.off { opacity: .25; }

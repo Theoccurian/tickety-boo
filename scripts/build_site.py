@@ -100,6 +100,33 @@ def photo_html(a: dict, small: bool = False, eager: bool = False) -> Markup:
 ALLOW_SHARE_ALIKE = False  # set from config.yaml (instagram: share_alike_photos)
 
 
+RATINGS = {6: "Rather nice", 7: "Jolly good", 8: "Splendid", 9: "Simply marvellous", 10: "Absolutely tickety-boo!"}
+SUN_MINI = ('<svg class="tbr-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="5.2"/>'
+            '<g stroke-linecap="round"><path d="M12 1.8v3M12 19.2v3M1.8 12h3M19.2 12h3M4.8 4.8l2.1 2.1M17.1 17.1l2.1 2.1'
+            'M4.8 19.2l2.1-2.1M17.1 6.9l2.1-2.1"/></g></svg>')
+
+
+def rating(a: dict) -> dict | None:
+    """The Tickety-Boo rating: the robot's score (6-10) shown as 1-5 suns and an English phrase."""
+    try:
+        score = int(a.get("score") or 0)
+    except (TypeError, ValueError):
+        return None
+    if score < 6:
+        return None
+    score = min(score, 10)
+    return {"suns": score - 5, "label": RATINGS[score]}
+
+
+def rating_html(r: dict | None, cls: str = "tbr") -> Markup:
+    if not r:
+        return Markup("")
+    suns = "".join(SUN_MINI.replace('class="tbr-sun"', f'class="tbr-sun{"" if i < r["suns"] else " off"}"')
+                   for i in range(5))
+    return Markup(f'<span class="{cls}" title="Tickety-Boo rating: {r["suns"]} out of 5">'
+                  f'<span class="tbr-suns">{suns}</span><span class="tbr-label">{escape(r["label"])}</span></span>')
+
+
 def card_photo(a: dict) -> str:
     """Photo for the Instagram/link-preview cards: only if its licence lets us crop it, or it's
     share-alike and share_alike_photos is on (the post then carries the same licence)."""
@@ -161,6 +188,7 @@ def load_articles(cats: dict) -> list[dict]:
         md.reset()
         a["html"] = Markup(md.convert(a["body"]))
         a["seed"] = a.get("cover_seed") or zlib.crc32(a["slug"].encode()) % 10**6
+        a["rating"] = rating(a)
         a["photo"] = None
         img = a.get("image") or {}
         if isinstance(img, dict) and img.get("file") and (PHOTOS_DIR / img["file"]).exists():
@@ -246,7 +274,7 @@ def main() -> None:
     partners = [p for p in (cfg.get("partners") or []) if p and p.get("name")]
     env.globals.update(
         site=site, categories=cfg["categories"], url=url, abs_url=lambda p: base_url + p,
-        icon=icon_svg, cover=cover_svg, photo=photo_html, year=now.year, approval=not cfg["publishing"].get("auto_publish"),
+        icon=icon_svg, cover=cover_svg, photo=photo_html, rating_badge=rating_html, year=now.year, approval=not cfg["publishing"].get("auto_publish"),
         feeds=cfg.get("feeds", []), support=cfg.get("support") or {}, newsletter=cfg.get("newsletter") or {},
         analytics=cfg.get("analytics") or {}, partners=partners,
         partners_cfg=cfg.get("partners_page") or {},
@@ -301,7 +329,7 @@ def main() -> None:
     design_hash = hashlib.md5((ROOT / "templates" / "social_card.html").read_bytes()).hexdigest()[:8]
     manifest = []
     for a in articles:
-        key = (f"{card_photo(a)}|{a['title']}|{a['dek']}|{a['category']}|{a['seed']}|{a['location']}|{site['name']}|{a['cat']['colour']}|"
+        key = (f"{a['rating']}|{card_photo(a)}|{a['title']}|{a['dek']}|{a['category']}|{a['seed']}|{a['location']}|{site['name']}|{a['cat']['colour']}|"
                f"{'|'.join(a['key_points'])}|{a['why']}|{design_hash}")
         h = hashlib.md5(key.encode()).hexdigest()[:10]
         variants = [("ig", 1080, 1350, f"{a['slug']}.jpg"), ("share", 1200, 630, f"{a['slug']}-share.jpg")]
@@ -342,7 +370,7 @@ def main() -> None:
         beats = [k for k in a["key_points"][:2]] or [a["dek"]]
         reels.append({
             "slug": a["slug"], "colour": a["cat"]["colour"], "section": a["cat"]["name"], "location": a.get("location", ""),
-            "hook": str(a.get("reel_hook") or a["title"]), "beats": beats,
+            "hook": str(a.get("reel_hook") or a["title"]), "beats": beats, "rating": a["rating"],
             # Reels only for stories with a real photo we're allowed to use on Instagram
             "video": has_video, "ig": for_ig, "tiktok": for_tiktok,
             "photo": card_photo(a) or "",

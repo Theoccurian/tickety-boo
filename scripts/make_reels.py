@@ -41,6 +41,8 @@ GROUP_GAP = 0.2      # the facts appear one word at a time, a little quicker as 
 WORD_FADE = 0.5      # how long each panel's text takes to fade in
 WORD_RISE = 18       # pixels the text glides up as it appears
 BAR_SWEEP = 0.5      # the yellow bar under the hook sweeps in over this long
+SUN_STEP = 0.24      # gap between each rating sun lighting up
+RATING_SUNS = 0      # set per video
 BANNER_MOVE = 0.5    # the intro banner drops in / slides away over this long
 BANNER_OUT = 2.2     # when it starts sliding away
 HOLD_HOOK = 1.6      # seconds the full hook stays on screen
@@ -52,14 +54,18 @@ def set_timeline(r: dict) -> None:
     """Each part stays on screen long enough to read comfortably."""
     global TIMELINE, SECONDS
     beats = (r["beats"] + r["beats"])[:2]
+    global RATING_SUNS
+    RATING_SUNS = int((r.get("rating") or {}).get("suns") or 0)
     hook = 0.12 + WORD_FADE + BAR_SWEEP + max(1.9, len(r["hook"].split()) * 0.22)
+    if r.get("rating"):
+        hook += 0.35 + RATING_SUNS * SUN_STEP + 0.6 + 0.9  # suns light up, then the exclamation, then a moment to read it
     facts = [max(3.8, 0.1 + WORD_FADE + len(b.split()) * 0.17 + 1.0) for b in beats]
     t, TIMELINE = 0.0, []
     for idx, d in enumerate([hook, *facts, END_CARD]):
         TIMELINE.append((idx, round(t, 2), round(t + d, 2)))
         t += d
     SECONDS = round(t, 2)
-DESIGN_VERSION = "reel-v14"  # change to redraw every Reel
+DESIGN_VERSION = "reel-v16"  # change to redraw every Reel
 
 PAGE = """<!doctype html><html><head><meta charset="utf-8"><style>
 @font-face {{ font-family: "Bricolage Grotesque"; font-weight: 200 800; src: url("{fonts}/bricolage-grotesque.woff2") format("woff2"); }}
@@ -92,6 +98,14 @@ TEXT_CSS = """
 .where {{ font-size: 30px; font-weight: 600; opacity: .85; }}
 .end-cta {{ align-self: flex-start; background: #F2AE1C; color: #132036; font-weight: 800; font-size: 60px; padding: 22px 40px; border-radius: 999px; letter-spacing: -0.02em; }}
 .end-sub {{ font-size: 40px; font-weight: 650; }}
+.extras {{ display: flex; flex-direction: column; gap: 18px; }}
+.extras.h, .extras.h * {{ visibility: hidden; }}
+.rate-area {{ display: flex; flex-direction: column; gap: 14px; margin-top: 6px; }}
+.rate-row {{ display: flex; gap: 16px; }}
+.rs {{ display: block; width: 58px; height: 58px; }}
+.rate-label {{ font-size: 54px; font-weight: 800; letter-spacing: -0.02em; color: #FFD266; text-shadow: 0 3px 16px rgba(0,0,0,.35); }}
+.rate-area.h, .rate-area.h * {{ visibility: hidden; }}
+.extras.h .rate-label.show {{ visibility: visible; }}
 .end-handle {{ font-size: 34px; font-weight: 650; opacity: .92; margin-top: -10px; }}
 .end-handle span {{ display: inline-block; min-width: 186px; font-weight: 500; opacity: .75; }}
 """
@@ -99,6 +113,11 @@ TEXT_CSS = """
 SUN = ('<svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="30" r="11" fill="#FFD266"/>'
        '<g stroke="#FFD266" stroke-width="3.6" stroke-linecap="round"><path d="M24 6v6M8.4 14.4l4.2 4.2M39.6 14.4l-4.2 4.2M3 30h5M40 30h5"/></g>'
        '<path d="M2 42h44" stroke="#fff" stroke-width="3.6" stroke-linecap="round"/></svg>')
+
+
+MINI_SUN = ('<svg class="{cls}" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="5.2"/>'
+            '<g stroke-linecap="round"><path d="M12 1.8v3M12 19.2v3M1.8 12h3M19.2 12h3M4.8 4.8l2.1 2.1M17.1 17.1l2.1 2.1'
+            'M4.8 19.2l2.1-2.1M17.1 6.9l2.1-2.1"/></g></svg>')
 
 
 def hook_size(text: str) -> int:
@@ -159,7 +178,8 @@ def render_layers(page, r: dict, site_name: str, tmp: Path, page_hi=None, site_d
                   handles: list | None = None) -> tuple[Image.Image, list[dict]]:
     """Background (photo or illustration) plus one transparent text layer per moment in the video.
     The background is drawn at double resolution so the slow zoom stays sharp and smooth."""
-    def shot(css: str, body: str, transparent: bool, pg=None, want_sun: bool = False, sun_sel: str = ".kicker svg"):
+    def shot(css: str, body: str, transparent: bool, pg=None, want_sun: bool = False, sun_sel: str = ".kicker svg",
+             all_rects: bool = False):
         pg = pg or page
         f = tmp / "layer.html"
         f.write_text(PAGE.format(fonts=FONTS, css=css, body=body), encoding="utf-8")
@@ -171,6 +191,10 @@ def render_layers(page, r: dict, site_name: str, tmp: Path, page_hi=None, site_d
         pg.screenshot(path=str(png), omit_background=transparent)
         img = Image.open(png).convert("RGBA")
         img.load()
+        if want_sun and all_rects:
+            rects = pg.evaluate("(sel) => Array.from(document.querySelectorAll(sel)).map(e => {"
+                                " const r = e.getBoundingClientRect(); return [r.x, r.y, r.width, r.height]; })", sun_sel)
+            return img, rects
         if want_sun:
             rect = pg.evaluate("(sel) => { const r = document.querySelector(sel).getBoundingClientRect();"
                                " return [r.x, r.y, r.width, r.height]; }", sun_sel)
@@ -186,16 +210,28 @@ def render_layers(page, r: dict, site_name: str, tmp: Path, page_hi=None, site_d
 
     css = TEXT_CSS.replace("{{", "{").replace("}}", "}")
     beats = (r["beats"] + r["beats"])[:2]
+    rate = r.get("rating")
+    rate_html = ""
+    if rate:
+        label = rate["label"].rstrip("!") + "!"
+        rate_html = ('<div class="rate-area"><div class="rate-row">' + '<span class="rs"></span>' * 5 + '</div>'
+                     f'<p class="rate-label">{html.escape(label)}</p></div>')
+    where_html = f'<p class="where">{where}</p>' if where else ""
+    extras_html = f'<div class="extras">{where_html}{rate_html}</div>' if (where_html or rate_html) else ""
     handles_html = "".join(f'<p class="end-handle"><span>{html.escape(name)}</span> @{html.escape(h)}</p>'
                            for name, h in (handles or []))
 
     def block(text: str, cls: str, size: int, extra: str, show_kicker: bool, word: int | None,
-              show_extra: bool, show_bar: bool = False) -> str:
+              show_extra: bool, show_bar: bool = False, rating_part: str = "") -> str:
         # The full layout is always present (so nothing ever moves); we choose what's visible.
         parts = html.escape(text).split()
         spans = " ".join(f'<span{"" if word in (i, "all") else " class=h"}>{w}</span>' for i, w in enumerate(parts))
         k = kicker if show_kicker else kicker.replace('class="kicker"', 'class="kicker h"', 1)
-        ex = extra if show_extra else extra.replace('<p class="', '<p class="h ', 1)
+        ex = extra if show_extra else extra.replace('class="extras"', 'class="extras h"', 1)
+        if rating_part != "label":
+            ex = ex.replace('class="rate-area"', 'class="rate-area h"', 1)
+        else:  # only the exclamation, nothing else
+            ex = extra.replace('class="extras"', 'class="extras h"', 1).replace('class="rate-label"', 'class="rate-label show"', 1)
         return f'<div class="block">{k}<p class="{cls}{" done" if show_bar else ""}" style="font-size:{size}px">{spans}</p>{ex}</div>'
 
     def crop(img: Image.Image):
@@ -215,10 +251,15 @@ def render_layers(page, r: dict, site_name: str, tmp: Path, page_hi=None, site_d
         # After the last word: the yellow bar (swept in) and then the location, each on its own.
         bar = crop(shot(css, block(text, cls, size, extra, False, -1, False, True), True)) if cls == "hook" else None
         extra_layer = crop(shot(css, block(text, cls, size, extra, False, -1, True), True)) if extra else None
-        return {"base": base, "words": word_layers, "bar": bar, "extra": extra_layer, "sun": sun}
+        rating = None
+        if "rate-area" in extra:
+            label_img, rects = shot(css, block(text, cls, size, extra, False, -1, False, rating_part="label"), True,
+                                    want_sun=True, sun_sel=".rs", all_rects=True)
+            rating = {"label": crop(label_img), "spots": rects}
+        return {"base": base, "words": word_layers, "bar": bar, "extra": extra_layer, "sun": sun, "rating": rating}
 
     plan = [
-        beat(r["hook"], "hook", hook_size(r["hook"]), f'<p class="where">{where}</p>' if where else ""),
+        beat(r["hook"], "hook", hook_size(r["hook"]), extras_html),
         beat(beats[0], "fact", fact_size(beats[0])),
         beat(beats[1], "fact", fact_size(beats[1])),
         {"base": shot(css, f'<div class="block">{kicker}<p class="end-cta">Full story: link in bio</p>'
@@ -320,6 +361,82 @@ def sun_icon(size: int, t: float) -> Image.Image:
     return out
 
 
+_rate_cache: dict = {}
+
+
+def rating_sun(size: int, lit: float, glow: float, scale: float) -> Image.Image:
+    """One rating sun: faint when unlit, golden when lit, with an optional glow. Padded for the glow."""
+    from PIL import ImageDraw, ImageFilter
+    key = (size, round(lit, 2), round(glow, 2), round(scale, 2))
+    if key in _rate_cache:
+        return _rate_cache[key]
+    ss = 6
+    S = size * ss
+    pad = size
+    c = Image.new("RGBA", (S + 2 * pad * ss, S + 2 * pad * ss), (0, 0, 0, 0))
+    u = S / 24 * scale
+    cx = cy = c.width / 2
+    if glow > 0.01:
+        g = Image.new("RGBA", c.size, (0, 0, 0, 0))
+        r = 13 * u
+        ImageDraw.Draw(g).ellipse((cx - r, cy - r, cx + r, cy + r), fill=(255, 190, 60, int(220 * glow)))
+        c.alpha_composite(g.filter(ImageFilter.GaussianBlur(6 * u)))
+    off, on = (255, 255, 255, 70), (255, 210, 102, 255)
+    col = tuple(round(o + (n - o) * lit) for o, n in zip(off, on))
+    d = ImageDraw.Draw(c)
+    r = 5.2 * u
+    d.ellipse((cx - r, cy - r, cx + r, cy + r), fill=col)
+    w = max(1, round(2.2 * u))
+    for (x1, y1, x2, y2) in ((0, -10.2, 0, -7.2), (0, 7.2, 0, 10.2), (-10.2, 0, -7.2, 0), (7.2, 0, 10.2, 0),
+                             (-7.2, -7.2, -5.1, -5.1), (5.1, 5.1, 7.2, 7.2), (-7.2, 7.2, -5.1, 5.1), (5.1, -5.1, 7.2, -7.2)):
+        d.line([(cx + x1 * u, cy + y1 * u), (cx + x2 * u, cy + y2 * u)], fill=col, width=w)
+        for ex, ey in ((x1, y1), (x2, y2)):
+            d.ellipse((cx + ex * u - w / 2, cy + ey * u - w / 2, cx + ex * u + w / 2, cy + ey * u + w / 2), fill=col)
+    out = c.resize((size + 2 * pad, size + 2 * pad), Image.LANCZOS)
+    _rate_cache[key] = out
+    return out
+
+
+def draw_rating(frame: Image.Image, rating: dict, n_lit: int, t0: float, t: float, a: float, dy: int) -> None:
+    """Five faint suns appear, the earned ones light up one by one (pop + glow), then the exclamation."""
+    if not rating or t < t0:
+        return
+    appear = _ease((t - t0) / 0.35)
+    for i, (x, y, w, h) in enumerate(rating["spots"]):
+        size = round(w)
+        lit = glow = 0.0
+        scale = 0.85 + 0.15 * appear
+        if i < n_lit:
+            ti = t0 + 0.35 + i * SUN_STEP
+            p = (t - ti) / 0.32
+            if p > 0:
+                lit = _ease(p)
+                pop = max(0.0, 1 - abs(p - 0.45) / 0.45) if p < 0.9 else 0.0
+                scale = 1 + 0.28 * pop
+                glow = (0.35 + 0.65 * pop) if p < 1 else 0.35
+        img = rating_sun(size, lit, glow, scale)
+        pad = size
+        frame.alpha_composite(_faded(img, a * appear), dest=(round(x) - pad, round(y) - pad + dy))
+    label = rating["label"]
+    if label:
+        tl = t0 + 0.35 + max(n_lit, 1) * SUN_STEP + 0.2
+        p = (t - tl) / 0.4
+        if p > 0:
+            e = _ease(p)
+            img, (x, y) = label
+            sc = 0.86 + 0.14 * (1 - (1 - min(1.0, p)) ** 2) + 0.05 * max(0.0, 1 - abs(p - 0.6) / 0.4)  # tiny bounce
+            sw, sh = max(1, round(img.width * sc)), max(1, round(img.height * sc))
+            im = img.resize((sw, sh), Image.LANCZOS) if (sw, sh) != img.size else img
+            frame.alpha_composite(_faded(im, e * a), dest=(x, round(y + dy + (img.height - sh) / 2 + 12 * (1 - e))))
+
+
+def rating_start(layer: dict, start: float) -> float:
+    """When the rating begins: just after the location has faded in."""
+    reveal = start + 0.12
+    done_at = reveal + WORD_FADE * 0.6
+    return done_at + BAR_SWEEP * 0.45 + WORD_FADE * 0.7
+
+
 def _faded(layer: Image.Image, a: float) -> Image.Image:
     if a >= 1:
         return layer
@@ -383,6 +500,8 @@ def frame_at(bg: Image.Image, layers: list[dict], t: float) -> Image.Image:
                 e = 1 - (1 - min(1.0, p)) ** 3
                 img, (x, y) = layer["extra"]
                 frame.alpha_composite(_faded(img, e * a), dest=(x, y + dy + round(WORD_RISE * (1 - e))))
+        if layer.get("rating"):
+            draw_rating(frame, layer["rating"], RATING_SUNS, rating_start(layer, start), t, a, dy)
     draw_banner(frame, layers[0].get("banner"), t)
     return frame.convert("RGB")
 
@@ -499,7 +618,8 @@ def main() -> None:
                     page_hi = browser.new_page(viewport={"width": W, "height": H}, device_scale_factor=2)
                 set_timeline(r)
                 bg, layers = render_layers(page, r, site_name, tmp, page_hi, site_domain, handles)
-                cover_t = max(1.4, min(TIMELINE[0][2] - 0.4, BANNER_OUT - 0.2))  # banner, hook, bar and location all showing
+                # Cover/Story image: everything in the opening on screen (the rating too, if there is one)
+                cover_t = TIMELINE[0][2] - 0.4 if r.get("rating") else max(1.4, min(TIMELINE[0][2] - 0.4, BANNER_OUT - 0.2))
                 frame_at(bg, layers, cover_t).save(story, "JPEG", quality=90)
                 story.with_suffix(".json").write_text(json.dumps({"cover_ms": int(cover_t * 1000)}))
                 if want_video:
