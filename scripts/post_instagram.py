@@ -19,6 +19,7 @@ import argparse
 import base64
 import datetime as dt
 import hashlib
+import json
 import os
 import subprocess
 import sys
@@ -154,14 +155,34 @@ def wait_until_ready(token: str, container: str, tries: int = 30) -> None:
     raise InstagramError("Instagram took too long to process the images; will try again next hour.")
 
 
-def publish(token: str, user_id: str, image_urls: list[str], caption: str) -> str:
-    """One image = a normal post. Two or more = a swipeable carousel."""
+def _photo_tags(handles: list[str]) -> str:
+    """Tags on the first picture, spaced along the bottom (each shows as a small label when tapped)."""
+    spots = [0.5] if len(handles) == 1 else [0.3, 0.7] if len(handles) == 2 else [0.2, 0.5, 0.8]
+    return json.dumps([{"username": h, "x": x, "y": 0.9} for h, x in zip(handles[:3], spots)])
+
+
+def publish(token: str, user_id: str, image_urls: list[str], caption: str, tags: list[str] | None = None) -> str:
+    """One image = a normal post. Two or more = a swipeable carousel.
+    The organisations in the story are tagged on the first picture; if Instagram refuses a tag
+    (for example, an account that no longer exists), the post goes out without the photo tags."""
+    def first_image(extra: dict) -> str:
+        if not tags:
+            return api("POST", f"{user_id}/media", **extra, access_token=token)["id"]
+        try:
+            return api("POST", f"{user_id}/media", **extra, user_tags=_photo_tags(tags), access_token=token)["id"]
+        except InstagramError as e:
+            log(f"Photo tags not accepted ({e}); posting without them (the caption still mentions them).")
+            return api("POST", f"{user_id}/media", **extra, access_token=token)["id"]
+
     if len(image_urls) == 1:
-        container = api("POST", f"{user_id}/media", image_url=image_urls[0], caption=caption, access_token=token)["id"]
+        container = first_image({"image_url": image_urls[0], "caption": caption})
     else:
         children = []
-        for url in image_urls:
-            child = api("POST", f"{user_id}/media", image_url=url, is_carousel_item="true", access_token=token)["id"]
+        for n, url in enumerate(image_urls):
+            if n == 0:
+                child = first_image({"image_url": url, "is_carousel_item": "true"})
+            else:
+                child = api("POST", f"{user_id}/media", image_url=url, is_carousel_item="true", access_token=token)["id"]
             wait_until_ready(token, child)
             children.append(child)
         container = api("POST", f"{user_id}/media", media_type="CAROUSEL", children=",".join(children),
@@ -350,7 +371,8 @@ def main() -> None:
         if slug in posted["posts"] or NOW - published > max_age:
             continue
         queue.append((published, slug, a))
-    queue.sort(key=lambda x: x[0])
+    # Newest first: the freshest news goes out, and if there's more than fits, older stories drop off.
+    queue.sort(key=lambda x: x[0], reverse=not ig.get("oldest_first", False))
 
     pending_reels = [k for k, v in posted["posts"].items() if not v.get("reel_id") and not v.get("reel_skipped") and v.get("reel_attempts", 0) < 3]
     if not queue and not args.check and not (pending_reels and ig.get("reels", True)):
@@ -391,7 +413,10 @@ def main() -> None:
         else:
             log(f"Posting: {a['title']} ({len(images)} image{'s' if len(images) > 1 else ''})")
             try:
-                media_id = publish(token, user_id, images, caption)
+                tags = [str(h).strip().lstrip("@") for h in (a.get("instagram_tags") or []) if str(h).strip()]
+                if not (ig.get("mention_accounts", True) and ig.get("photo_tags", True)):
+                    tags = []
+                media_id = publish(token, user_id, images, caption, tags)
             except Exception as e:  # noqa: BLE001 - includes Instagram being slow to reply (timeouts)
                 time.sleep(20)
                 # Instagram sometimes reports an error even though the post went up. Check before giving up.

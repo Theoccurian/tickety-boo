@@ -84,7 +84,7 @@ instagram:
   # Only post between these hours, UK time (24-hour clock).
   posting_hours: [8, 21]
   # Leave at least this many hours between posts.
-  min_hours_between_posts: 3
+  min_hours_between_posts: 2
   # Stories older than this are never posted to Instagram.
   max_story_age_days: 3
   # true = swipeable 3-slide posts (headline, In brief, Why it matters). false = single image.
@@ -113,6 +113,8 @@ instagram:
   # true = mention the organisations in each story (e.g. @wwtworldwide), but only when the robot finds
   # their official account on their own website and is sure it matches. Otherwise it mentions nobody.
   mention_accounts: true
+  # true = also tag those organisations on the first picture (if Instagram refuses a tag, it posts without).
+  photo_tags: true
 
 # ─── Making money (all optional; each part stays hidden until filled in) ──────
 
