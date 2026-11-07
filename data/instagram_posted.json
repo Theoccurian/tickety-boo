@@ -439,7 +439,9 @@
     },
     "rubin-observatory-spots-two-hidden-companions-of-the-milky-way": {
       "media_id": "18098398625455578",
-      "posted_at": "2026-11-07T19:07:17+00:00"
+      "posted_at": "2026-11-07T19:07:17+00:00",
+      "story_tried": true,
+      "story_id": "18013069076770703"
     }
   }
 }
