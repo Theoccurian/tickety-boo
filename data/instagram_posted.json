@@ -487,7 +487,9 @@
     },
     "ai-predicts-partners-for-mystery-proteins-in-human-mitochondria": {
       "media_id": "18121807370080049",
-      "posted_at": "2026-11-08T18:41:11+00:00"
+      "posted_at": "2026-11-08T18:41:11+00:00",
+      "story_tried": true,
+      "story_id": "17978401074140502"
     }
   }
 }
