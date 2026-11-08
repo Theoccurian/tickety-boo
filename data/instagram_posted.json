@@ -455,7 +455,9 @@
     },
     "esbjerg-heat-pumps-draw-district-heating-from-the-north-sea-in-winter": {
       "media_id": "18149000284501172",
-      "posted_at": "2026-11-08T10:07:18+00:00"
+      "posted_at": "2026-11-08T10:07:18+00:00",
+      "story_tried": true,
+      "story_id": "17884208823534352"
     }
   }
 }
