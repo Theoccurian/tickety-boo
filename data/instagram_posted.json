@@ -503,7 +503,9 @@
     },
     "scientists-map-coral-colony-as-long-as-100-buses-off-cocos-keeling": {
       "media_id": "18418754515080984",
-      "posted_at": "2026-11-09T08:07:17+00:00"
+      "posted_at": "2026-11-09T08:07:17+00:00",
+      "story_tried": true,
+      "story_id": "18109772945457848"
     }
   }
 }
