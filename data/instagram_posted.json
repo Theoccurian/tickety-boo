@@ -566,7 +566,9 @@
     },
     "balloon-in-the-aorta-lifts-blood-pressure-in-cardiac-arrest-english": {
       "media_id": "18101526233429678",
-      "posted_at": "2026-11-10T12:37:21+00:00"
+      "posted_at": "2026-11-10T12:37:21+00:00",
+      "story_tried": true,
+      "story_id": "18103208771543858"
     }
   }
 }
