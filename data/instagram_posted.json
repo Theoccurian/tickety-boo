@@ -591,7 +591,9 @@
     "cancer-cells-reading-slip-turned-into-a-built-in-self-destruct-switch": {
       "media_id": "18040874528844592",
       "posted_at": "2026-11-10T19:37:18+00:00",
-      "story_tried": true
+      "story_tried": true,
+      "reel_attempts": 1,
+      "reel_id": "17918006640472442"
     }
   }
 }
