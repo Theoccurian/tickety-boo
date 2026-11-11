@@ -597,7 +597,9 @@
     },
     "nasas-twin-escapade-probes-get-earth-slingshot-towards-mars": {
       "media_id": "18073782704782529",
-      "posted_at": "2026-11-11T08:07:17+00:00"
+      "posted_at": "2026-11-11T08:07:17+00:00",
+      "story_tried": true,
+      "story_id": "18391310239236860"
     }
   }
 }
