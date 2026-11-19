@@ -731,7 +731,9 @@
     },
     "mcgill-team-links-genetic-diagnosis-to-personalised-therapy-testing": {
       "media_id": "18230206816335695",
-      "posted_at": "2026-11-19T13:37:19+00:00"
+      "posted_at": "2026-11-19T13:37:19+00:00",
+      "story_tried": true,
+      "story_id": "18497871724108680"
     }
   }
 }
