@@ -121,7 +121,8 @@ def main() -> None:
 
     if cfg.get("instagram", {}).get("mention_accounts", True):
         try:
-            meta["instagram_tags"] = find_instagram_tags(ai, meta["title"], meta["dek"], meta["source_url"], log=log)
+            meta["instagram_tags"] = find_instagram_tags(ai, meta["title"], meta["dek"], meta["source_url"], log=log,
+                                                         body_text=body)
         except Exception as e:  # noqa: BLE001
             log(f"Tags skipped: {e}")
     write_article(path, meta, body)

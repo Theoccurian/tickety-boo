@@ -36,6 +36,32 @@ PICK_SCHEMA = {
 }
 
 
+NAME_SYSTEM = """You help a good-news website mention the organisations behind a story on Instagram.
+Name up to 3 organisations that are central to this story (the university, research institute, charity, hospital,
+council, museum, zoo or company that did the good thing), and the address of each one's official main website
+(e.g. Stanford University -> https://www.stanford.edu). Only include an organisation if you are confident of its
+official website address. Skip news outlets, journals, governments in general, and anything mentioned in passing."""
+
+NAME_SCHEMA = {
+    "type": "object",
+    "properties": {"orgs": {"type": "array", "maxItems": 3, "items": {"type": "object", "properties": {
+        "name": {"type": "string"}, "website": {"type": "string"}}, "required": ["name", "website"]}}},
+    "required": ["orgs"],
+}
+
+GENERIC_WORDS = {"the", "of", "and", "for", "university", "college", "institute", "trust", "foundation", "society",
+                 "national", "royal", "school", "centre", "center", "hospital", "museum", "group", "uk", "inc", "ltd"}
+
+
+def site_is(org_name: str, page: str) -> bool:
+    """True if the page's own title says it belongs to this organisation (so a wrong guess is caught)."""
+    title = " ".join(re.findall(r"<title[^>]*>(.*?)</title>", page, flags=re.I | re.S)[:1])
+    title += " " + " ".join(re.findall(r'property=["\']og:site_name["\'][^>]*content=["\']([^"\']+)', page, flags=re.I))
+    title = html.unescape(title).lower()
+    words = [w for w in re.findall(r"[a-z]+", org_name.lower()) if w not in GENERIC_WORDS and len(w) > 2]
+    return bool(words) and all(w in title for w in words)
+
+
 VERIFY_SYSTEM = """You check Instagram handles before a news site mentions them. Be strict: a wrong mention is much worse
 than no mention. For each organisation you get its name, its own website, and the Instagram handles that website links to.
 Pick a handle only if it is clearly that organisation's OWN official account (its name or a recognisable abbreviation
@@ -84,15 +110,13 @@ def article_links(source_url: str) -> list[tuple[str, str]]:
     return out[:25]
 
 
-def find_instagram_tags(ai, title: str, dek: str, source_url: str, log=print) -> list[str]:
+def find_instagram_tags(ai, title: str, dek: str, source_url: str, log=print, body_text: str = "") -> list[str]:
     links = article_links(source_url)
     direct = [(t, u) for t, u in links if "instagram.com/" in u]
     sites = [(t, u) for t, u in links if "instagram.com/" not in u]
-    if not links:
-        return []
     numbered = "\n".join(f"{i}. {t or '(no text)'} - {u}" for i, (t, u) in enumerate(sites, start=1))
     chosen: list[str] = []
-    if sites:
+    if sites and numbered:
         try:
             pick = ai.call(ai.scoring_model, PICK_SYSTEM, f"Story: {title}\n{dek}\n\nLinks:\n{numbered}",
                            "choose_links", PICK_SCHEMA, max_tokens=300)
@@ -111,7 +135,32 @@ def find_instagram_tags(ai, title: str, dek: str, source_url: str, log=print) ->
         found = instagram_handles_in(u + '"')
         if found:
             orgs.append({"name": t or "linked in the article", "site": "(linked directly in the article)", "candidates": found[:1]})
+    # Organisations named in the story but not linked: look up their official site, and only trust it if the
+    # site's own title confirms it's them.
+    try:
+        named = ai.call(ai.scoring_model, NAME_SYSTEM, f"Story: {title}\n{dek}\n\n{body_text[:2500]}",
+                        "name_orgs", NAME_SCHEMA, max_tokens=400).get("orgs", [])
+    except RuntimeError as e:
+        log(f"    tags: couldn't name organisations ({e})")
+        named = []
+    seen_sites = {o["site"].replace("www.", "") for o in orgs}
+    for org in named[:3]:
+        site = str(org.get("website", "")).strip()
+        if not site.startswith("http"):
+            site = "https://" + site
+        dom = urlparse(site).netloc
+        if not dom or dom.replace("www.", "") in seen_sites:
+            continue
+        page = _get(f"https://{dom}/") or ""
+        if not page or not site_is(org.get("name", ""), page):
+            log(f"    tags: skipped {org.get('name')} ({dom}): couldn't confirm it's their site")
+            continue
+        found = instagram_handles_in(page)
+        if found:
+            orgs.append({"name": org["name"], "site": dom, "candidates": found[:5]})
+            seen_sites.add(dom.replace("www.", ""))
     if not orgs:
+        log("    Instagram mentions: none (no clear match)")
         return []
     # Strict check: only accept a handle that is clearly the organisation's own account.
     listing = "\n".join(f"{i}. {o['name']} - website {o['site']} - handles: {', '.join('@' + h for h in o['candidates'])}"

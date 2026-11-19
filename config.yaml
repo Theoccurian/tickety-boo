@@ -45,11 +45,14 @@ seo:
   indexnow_key: "9db169fadca80a28767d5cc8087e911d"
 
 publishing:
-  # How many new stories to write each time the robot runs (it runs 3 times a day).
-  articles_per_run: 3
+  # The robot does one big news sweep a day (in the morning). Its other scheduled
+  # times only step in if that sweep failed. Raise this to sweep more often (costs more).
+  sweeps_per_day: 1
+  # The most new stories to write in a sweep.
+  articles_per_run: 4
   # Stories are rated 1–10 for how genuinely uplifting and newsworthy they are.
   # Only stories at or above this score are written up.
-  min_score: 6
+  min_score: 7
   # Only consider stories published in the last this-many hours.
   max_age_hours: 48
   # false = every story waits for you to approve it in GitHub (recommended).

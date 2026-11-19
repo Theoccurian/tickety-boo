@@ -259,7 +259,7 @@ Strict rules:
 8. Location: the country or region where it happened (e.g. "Kenya", "Scotland, UK"), or "Global".
 9. Do not mention the source outlet in the body; the site credits it separately.
 10. Key points: exactly 3 short, self-contained factual statements (each under 20 words) summarising who, what, where and the outcome, so a reader or search engine can understand the story at a glance. Same facts rules apply.
-11. Instagram caption: start with one short line naming the key subject and place in plain, searchable words, the way someone would search for it (e.g. "Irrawaddy dolphins, Mekong River, Cambodia"). Then 2-4 short, friendly sentences in your own words telling the story (same facts rules apply), with the same light English touch (one phrase at most), at most one fitting emoji, then a blank line, then "Full story: link in bio", then a blank line, then 3-5 specific, relevant hashtags plus {hashtags}.
+11. Instagram caption: start with one short line naming the key subject and place in plain, searchable words, the way someone would search for it (e.g. "Irrawaddy dolphins, Mekong River, Cambodia"). Then 2-4 short, friendly sentences in your own words telling the story (same facts rules apply), with the same light English touch (one phrase at most), at most one fitting emoji, then a blank line, then "Full story: link in bio", then a blank line, then 3-5 specific, relevant hashtags (including one for the main organisation behind the story, if there is one, e.g. #Stanford, #RSPB, #NHS) plus {hashtags}.
 12. Video hook (reel_hook): the big opening line of a short vertical video, 4-9 words, that makes someone stop scrolling. Plain, vivid and true to the facts: lead with the most surprising or heartening fact (e.g. "Six baby dolphins just beat the odds", "A wrong turn saved a family from a fire"). No questions, no "you won't believe", no exaggeration, at most one emoji at the end.
 13. Animal research: if the findings come from experiments on animals (e.g. mice, rats, monkeys), do not mention the animals or what was done to them anywhere (body, headline, standfirst, key points, caption, video hook). Write purely about the science and the breakthrough. But stay honest about the stage: say clearly, once in the body and in the key points, that this is early laboratory or preclinical research that has not yet been tested in people (e.g. "in early laboratory studies", "in preclinical research, ahead of human trials"). Never imply a treatment works in humans when it has only been shown in the lab.
 
@@ -498,6 +498,15 @@ def main() -> None:
     save_json(PHOTO_UPDATES_FILE, [])
     save_json(SCORE_UPDATES_FILE, [])
 
+    # Cost saver: only one full sweep a day. Later scheduled runs stop here straight away (no AI used),
+    # unless the day's sweep failed, in which case they try again.
+    today = NOW.date().isoformat()
+    per_day = int(pub.get("sweeps_per_day", 1))
+    done_today = seen.get("sweeps", {}).get(today, 0)
+    if not args.list and per_day > 0 and done_today >= per_day and os.environ.get("FORCE_SWEEP", "").lower() != "true":
+        log(f"Today's news sweep is already done ({done_today} of {per_day}). Nothing to do until tomorrow.")
+        return
+
     log("Reading news feeds…")
     candidates = fetch_candidates(cfg, seen)
     log(f"{len(candidates)} new headline(s) to consider.")
@@ -506,6 +515,7 @@ def main() -> None:
             log(f"- [{c['source']}] {c['title']}")
         return
     if not candidates:
+        seen["sweeps"] = {today: done_today + 1}
         prune_seen(seen)
         save_json(SEEN_FILE, seen)
         ai = AI(cfg)
@@ -516,6 +526,8 @@ def main() -> None:
     ai = AI(cfg)
     log("Picking the best good-news stories…")
     scored = score_candidates(ai, cfg, candidates, seen["recent_headlines"])
+    if scored:  # the sweep worked, so count it (a failed sweep gets retried at the next scheduled time)
+        seen["sweeps"] = {today: done_today + 1}
     # Everything we've judged is marked as seen so it isn't re-judged next time.
     for c in candidates:
         if "score" in c:
@@ -597,7 +609,8 @@ def main() -> None:
                 log("    no photo: couldn't download the chosen one")
         if cfg.get("instagram", {}).get("mention_accounts", True):
             try:
-                meta["instagram_tags"] = find_instagram_tags(ai, meta["title"], meta["dek"], cand["url"], log=log)
+                meta["instagram_tags"] = find_instagram_tags(ai, meta["title"], meta["dek"], cand["url"], log=log,
+                                                             body_text=art["body_markdown"])
             except Exception as e:  # noqa: BLE001 - mentions are a nice-to-have
                 log(f"    tags skipped: {e}")
         write_article(path, meta, art["body_markdown"])
