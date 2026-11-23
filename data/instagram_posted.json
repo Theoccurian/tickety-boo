@@ -747,7 +747,9 @@
     },
     "potatoes-grown-in-simulated-moon-soil-match-earth-grown-plants": {
       "media_id": "17919794229495092",
-      "posted_at": "2026-11-23T18:57:09+00:00"
+      "posted_at": "2026-11-23T18:57:09+00:00",
+      "story_tried": true,
+      "story_id": "18080277929775785"
     }
   }
 }
