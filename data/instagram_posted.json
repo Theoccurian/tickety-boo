@@ -755,7 +755,9 @@
     },
     "uc-davis-team-uncovers-how-an-antibody-treatment-reversed-type-1": {
       "media_id": "18121983659087937",
-      "posted_at": "2026-11-25T10:20:44+00:00"
+      "posted_at": "2026-11-25T10:20:44+00:00",
+      "story_tried": true,
+      "story_id": "18085909352389733"
     }
   }
 }
